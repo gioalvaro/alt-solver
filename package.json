@@ -11,8 +11,8 @@
     "test:watch": "vitest",
     "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.{ts,gs}'",
     "format": "prettier --write --no-error-on-unmatched-pattern 'src/**/*.{ts,gs,html,json}'",
-    "push": "npm run build && clasp push -f",
-    "deploy": "npm run build && clasp push -f && echo 'Open Apps Script editor and use Deploy > Test deployments > Install'"
+    "push": "pnpm run build && clasp push -f",
+    "deploy": "pnpm run build && clasp push -f && echo 'Open Apps Script editor and use Deploy > Test deployments > Install'"
   },
   "devDependencies": {
     "@google/clasp": "^2.4.2",
