@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.client.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint 'src/**/*.{ts,gs}'",
-    "format": "prettier --write 'src/**/*.{ts,gs,html,json}'",
+    "lint": "eslint --no-error-on-unmatched-pattern 'src/**/*.{ts,gs}'",
+    "format": "prettier --write --no-error-on-unmatched-pattern 'src/**/*.{ts,gs,html,json}'",
     "push": "npm run build && clasp push -f",
     "deploy": "npm run build && clasp push -f && echo 'Open Apps Script editor and use Deploy > Test deployments > Install'"
   },
