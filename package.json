@@ -1,0 +1,29 @@
+{
+  "name": "alt-solver",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Google Sheets add-on that replicates Excel's Solver for LP/MIP problems",
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs && node scripts/build-dialog-html.mjs",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.client.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint 'src/**/*.{ts,gs}'",
+    "format": "prettier --write 'src/**/*.{ts,gs,html,json}'",
+    "push": "npm run build && clasp push -f",
+    "deploy": "npm run build && clasp push -f && echo 'Open Apps Script editor and use Deploy > Test deployments > Install'"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2",
+    "@types/google-apps-script": "^1.0.83",
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "esbuild": "^0.20.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}
