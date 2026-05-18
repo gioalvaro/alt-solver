@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, cpSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, cpSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 mkdirSync('dist', { recursive: true });
@@ -9,6 +9,10 @@ const bundle = readFileSync('dist/client-bundle.js', 'utf-8');
 const html = template.replace('/* __CLIENT_BUNDLE__ */', bundle);
 writeFileSync('dist/dialog.html', html);
 console.log(`Built dist/dialog.html (${html.length} bytes)`);
+
+// Remove the intermediate JS bundle so clasp doesn't try to upload it as .gs.
+// The bundle is already inlined in dialog.html.
+rmSync('dist/client-bundle.js', { force: true });
 
 // Copy .gs files
 if (existsSync('src/server')) {
