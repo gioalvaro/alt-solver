@@ -27,3 +27,7 @@ export function getActiveSheetContext(): Promise<ServerContext> {
 export function saveModel(jsonString: string): Promise<{ ok: boolean }> {
   return call<{ ok: boolean }>('saveModel', jsonString);
 }
+
+export function getActiveRangeA1(): Promise<string> {
+  return call<string>('getActiveRangeA1');
+}

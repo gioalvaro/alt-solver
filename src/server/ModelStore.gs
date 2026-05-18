@@ -79,3 +79,17 @@ function saveModel(jsonString) {
   modelStore_save(SpreadsheetApp.getActiveSheet(), jsonString);
   return { ok: true };
 }
+
+/**
+ * Returns the currently active range as a qualified A1 string.
+ * Used by the dialog's range picker to capture user selection.
+ * @return {string}
+ */
+function getActiveRangeA1() {
+  var range = SpreadsheetApp.getActiveRange();
+  if (!range) return '';
+  var sheetName = range.getSheet().getName();
+  var needsQuotes = !/^[A-Za-z_][A-Za-z0-9_]*$/.test(sheetName);
+  var prefix = needsQuotes ? "'" + sheetName + "'" : sheetName;
+  return prefix + '!' + range.getA1Notation();
+}
