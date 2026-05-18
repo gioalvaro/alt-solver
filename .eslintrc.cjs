@@ -25,12 +25,18 @@ module.exports = {
       globals: {
         SpreadsheetApp: 'readonly',
         HtmlService: 'readonly',
+        CardService: 'readonly',
         Session: 'readonly',
         Logger: 'readonly',
+        ScriptApp: 'readonly',
       },
       rules: {
         '@typescript-eslint/no-unused-vars': 'off',
-        'no-undef': 'error',
+        // Apps Script auto-loads every .gs file into a single global
+        // namespace; ESLint runs per-file so cross-file calls look
+        // undefined. Disable no-undef for .gs and rely on Apps Script's
+        // runtime to catch genuine missing references.
+        'no-undef': 'off',
       },
     },
   ],
