@@ -24,6 +24,12 @@ describe('a1', () => {
       expect(isValidA1(':B2')).toBe(false);
       expect(isValidA1('Sheet1!')).toBe(false);
     });
+
+    it('rejects row 0 (rows are 1-indexed)', () => {
+      expect(isValidA1('A0')).toBe(false);
+      expect(isValidA1('B01')).toBe(false);
+      expect(isValidA1('Sheet1!A0:B5')).toBe(false);
+    });
   });
 
   describe('parseA1', () => {

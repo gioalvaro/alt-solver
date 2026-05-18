@@ -9,8 +9,9 @@ export interface ParsedA1 {
   end: string | null;  // canonical, without $: e.g. "B17" or null for single cell
 }
 
-// Single cell: optional $, 1-3 letters, optional $, 1-7 digits
-const CELL = /\$?[A-Z]{1,3}\$?[0-9]{1,7}/;
+// Single cell: optional $, 1-3 letters, optional $, row index >= 1 (1-7 digits, no leading zero).
+// Sheets/Excel rows are 1-indexed; "A0" is invalid.
+const CELL = /\$?[A-Z]{1,3}\$?[1-9][0-9]{0,6}/;
 
 // Unquoted sheet name: letters/digits/underscore, no spaces, no special chars
 const SHEET_UNQUOTED = /[A-Za-z_][A-Za-z0-9_]*/;

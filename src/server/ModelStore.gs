@@ -1,6 +1,10 @@
 /**
  * Persists the AltSolver model on the active sheet via Developer Metadata.
  * Key: "altsolver.model.v1", visibility: DOCUMENT, scope: per sheet.
+ *
+ * Keep this constant in sync with src/shared/constants.ts:METADATA_KEY.
+ * .gs cannot import from TS, so both copies must change together when the
+ * schema version bumps (v1 -> v2 etc).
  */
 var METADATA_KEY_ = 'altsolver.model.v1';
 
