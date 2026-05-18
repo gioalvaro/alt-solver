@@ -11,8 +11,15 @@
     "common": {
       "name": "AltSolver",
       "logoUrl": "https://www.gstatic.com/images/icons/material/system/1x/calculate_googblue_24dp.png",
-      "useLocaleFromApp": true
+      "useLocaleFromApp": true,
+      "homepageTrigger": {
+        "runFunction": "onHomepage"
+      }
     },
-    "sheets": {}
+    "sheets": {
+      "homepageTrigger": {
+        "runFunction": "onHomepage"
+      }
+    }
   }
 }
