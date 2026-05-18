@@ -21,6 +21,14 @@
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     button.primary { background: #1a73e8; color: white; border-color: #1a73e8; }
     button.primary:hover { background: #1664c9; }
+    button.picking {
+      background: #1a73e8; color: white; border-color: #1a73e8;
+      animation: picking-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes picking-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(26,115,232,0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(26,115,232,0); }
+    }
     .hint { font-size: 12px; color: #d93025; min-height: 14px; margin-top: 2px; }
     fieldset { border: 1px solid #dadce0; border-radius: 4px; padding: 8px 12px; }
     fieldset label { display: inline-block; margin-right: 12px; font-weight: normal; }

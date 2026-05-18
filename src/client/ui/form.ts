@@ -76,8 +76,10 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
   const constraintsHost = host.querySelector<HTMLDivElement>('#constraintsHost')!;
   const savedMessage = host.querySelector<HTMLDivElement>('#savedMessage')!;
 
-  const objPicker = makeRangePicker(objCell);
-  const varsPicker = makeRangePicker(varsRange);
+  const objPickBtn = host.querySelector<HTMLButtonElement>('[data-action="pick-obj"]')!;
+  const varsPickBtn = host.querySelector<HTMLButtonElement>('[data-action="pick-vars"]')!;
+  const objPicker = makeRangePicker(objCell, objPickBtn);
+  const varsPicker = makeRangePicker(varsRange, varsPickBtn);
 
   mountConstraintsList(constraintsHost, {
     parent: host,
@@ -118,12 +120,10 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
     const target = e.target as HTMLElement;
     const action = target.dataset.action;
     if (action === 'pick-obj') {
-      await objPicker.start();
-      await objPicker.capture();
+      await objPicker.toggle();
       syncObjective();
     } else if (action === 'pick-vars') {
-      await varsPicker.start();
-      await varsPicker.capture();
+      await varsPicker.toggle();
       syncVariables();
     } else if (action === 'options') {
       openOptionsModal(host, {

@@ -82,18 +82,18 @@ export function openConstraintModal(parent: HTMLElement, opts: OpenOpts): void {
   applyOpVisibility();
   op.addEventListener('change', applyOpVisibility);
 
-  const lhsPicker = makeRangePicker(lhs);
-  const rhsPicker = makeRangePicker(rhs);
+  const lhsPickBtn = overlay.querySelector<HTMLButtonElement>('[data-action="pick-lhs"]')!;
+  const rhsPickBtn = overlay.querySelector<HTMLButtonElement>('[data-action="pick-rhs"]')!;
+  const lhsPicker = makeRangePicker(lhs, lhsPickBtn);
+  const rhsPicker = makeRangePicker(rhs, rhsPickBtn);
 
   overlay.addEventListener('click', async (e) => {
     const target = e.target as HTMLElement;
     const action = target.dataset.action;
     if (action === 'pick-lhs') {
-      await lhsPicker.start();
-      await lhsPicker.capture();
+      await lhsPicker.toggle();
     } else if (action === 'pick-rhs') {
-      await rhsPicker.start();
-      await rhsPicker.capture();
+      await rhsPicker.toggle();
     } else if (action === 'cancel') {
       overlay.remove();
       opts.onCancel?.();
