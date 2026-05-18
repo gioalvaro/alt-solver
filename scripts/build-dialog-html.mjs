@@ -6,7 +6,10 @@ mkdirSync('dist', { recursive: true });
 // Bundle HTML
 const template = readFileSync('src/client/dialog.html.template', 'utf-8');
 const bundle = readFileSync('dist/client-bundle.js', 'utf-8');
-const html = template.replace('/* __CLIENT_BUNDLE__ */', bundle);
+// Use a function as the replacer so String.prototype.replace does NOT
+// interpret $& $` $' $n patterns inside the bundle (the bundle contains
+// JS template literals and regexes with backticks/dollar signs).
+const html = template.replace('/* __CLIENT_BUNDLE__ */', () => bundle);
 writeFileSync('dist/dialog.html', html);
 console.log(`Built dist/dialog.html (${html.length} bytes)`);
 
