@@ -2,6 +2,7 @@ import type { LinearForm, SolveResult } from '../../shared/linear-form';
 import { getHighs, type HighsRawResult } from './highs-loader';
 import { toLpFormat } from './model-builder';
 import { mapStatus, mapRowStatus } from './solve-status';
+import { computeRanging } from './ranging';
 
 export interface SolveOptions {
   timeLimitSec: number;
@@ -50,14 +51,28 @@ export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<Solv
 
   const cols = Object.values(raw.Columns || {}).sort((a, b) => a.Index - b.Index);
 
+  // Compute ranges only for LP problems (sensitivity analysis is not defined
+  // for MIP). The basis-change bisection is sub-second for didactic problems.
+  let ranging: ReturnType<typeof computeRanging> | null = null;
+  if (!isMip && status === 'optimal') {
+    try {
+      ranging = computeRanging(highs, lf, raw, {
+        time_limit: opts.timeLimitSec,
+        mip_rel_gap: opts.mipRelGap,
+      });
+    } catch (e) {
+      console.warn('[AltSolver] ranging computation failed:', e);
+    }
+  }
+
   const variables = lf.vars.map((v, i) => {
     const col = cols[i];
     return {
       name: v.name,
       primal: col?.Primal ?? v.originalValue,
       dual: !isMip && col != null ? col.Dual : null,
-      rangeUp: null as number | null,
-      rangeDown: null as number | null,
+      rangeUp: ranging?.varRangeUp[i] ?? null,
+      rangeDown: ranging?.varRangeDown[i] ?? null,
     };
   });
 
@@ -68,8 +83,8 @@ export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<Solv
       primal: r?.Primal ?? row.lhsOriginalValue,
       dual: !isMip && r != null ? r.Dual : null,
       status: mapRowStatus(r?.Status),
-      rangeUp: null as number | null,
-      rangeDown: null as number | null,
+      rangeUp: ranging?.rowRangeUp[j] ?? null,
+      rangeDown: ranging?.rowRangeDown[j] ?? null,
     };
   });
 
