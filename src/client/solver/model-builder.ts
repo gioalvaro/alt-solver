@@ -23,19 +23,25 @@ export function toLpFormat(lf: LinearForm): string {
     lines.push(` c${idx + 1}: ${expr} ${opStr} ${formatNumber(row.rhs)}`);
   });
 
-  // Bounds (only non-default)
+  // Bounds (only non-default).
+  // The server returns 1e30 / -1e30 as sentinel "infinity" (Apps Script's
+  // RPC serializes real Infinity/NaN as null). Treat |x| >= 1e30 as ∞.
+  const INF = 1e30;
+  const isPosInf = (x: number): boolean => x === Infinity || x >= INF;
+  const isNegInf = (x: number): boolean => x === -Infinity || x <= -INF;
+
   const boundLines: string[] = [];
   lf.vars.forEach((v, i) => {
     const name = sanitizedNames[i]!;
-    if (v.lower === -Infinity && v.upper === Infinity) {
+    if (isNegInf(v.lower) && isPosInf(v.upper)) {
       boundLines.push(` ${name} free`);
       return;
     }
     if (v.lower !== 0) {
-      if (v.lower === -Infinity) boundLines.push(` -inf <= ${name}`);
+      if (isNegInf(v.lower)) boundLines.push(` -inf <= ${name}`);
       else boundLines.push(` ${formatNumber(v.lower)} <= ${name}`);
     }
-    if (v.upper !== Infinity) {
+    if (!isPosInf(v.upper)) {
       boundLines.push(` ${name} <= ${formatNumber(v.upper)}`);
     }
   });
