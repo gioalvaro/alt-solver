@@ -13,6 +13,7 @@ import {
 import { runSolve } from '../solver/solve';
 import { buildAnswerMatrix } from '../reports/answer';
 import { buildSensitivityMatrix } from '../reports/sensitivity';
+import { buildGraphicalSvg } from '../reports/graphical';
 import { openResultsModal } from './results-modal';
 import type { LinearForm } from '../../shared/linear-form';
 
@@ -272,6 +273,7 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
     };
     const answerMatrix = buildAnswerMatrix(lf, sr, ctx);
     const sensitivityMatrix = buildSensitivityMatrix(lf, sr, ctx);
+    const graphicalSvg = buildGraphicalSvg(lf, sr);
 
     overlay.remove();
 
@@ -287,7 +289,12 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
           if (!choice.keepSolution) {
             await restoreSnapshot(modelDoc, ex.snapshot);
           }
-          if (choice.keepSolution || choice.writeAnswer || choice.writeSensitivity) {
+          if (
+            choice.keepSolution ||
+            choice.writeAnswer ||
+            choice.writeSensitivity ||
+            choice.writeGraphical
+          ) {
             await writeResults({
               modelDoc,
               solveResult: {
@@ -297,9 +304,14 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
               },
               answerMatrix: choice.writeAnswer ? answerMatrix : null,
               sensitivityMatrix: choice.writeSensitivity ? sensitivityMatrix : null,
+              graphicalSvg: choice.writeGraphical ? graphicalSvg : null,
               snapshot: ex.snapshot,
               keepSolution: choice.keepSolution,
-              writeReports: { answer: choice.writeAnswer, sensitivity: choice.writeSensitivity },
+              writeReports: {
+                answer: choice.writeAnswer,
+                sensitivity: choice.writeSensitivity,
+                graphical: choice.writeGraphical,
+              },
             });
           }
         } finally {
