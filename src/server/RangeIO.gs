@@ -268,11 +268,14 @@ function extractLinearForm(modelDoc) {
     return lhsA1;
   }
 
+  // Apps Script's google.script.run JSON-serializes Infinity/NaN as null.
+  // Use 1e30 as a finite sentinel; the client treats |x| >= 1e30 as infinity.
+  var INF = 1e30;
   var origFlat = flat(originals);
   var vars = [];
   for (var i6 = 0; i6 < n; i6++) {
-    var lb = modelDoc.options.assumeNonNegative ? 0 : -Infinity;
-    var ub = Infinity;
+    var lb = modelDoc.options.assumeNonNegative ? 0 : -INF;
+    var ub = INF;
     if (binByIdx[i6]) { lb = 0; ub = 1; }
     var rI = isColumn ? i6 : 0;
     var cI = isColumn ? 0 : i6;

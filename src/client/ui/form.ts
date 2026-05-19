@@ -25,11 +25,13 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
   const doc = opts.draft.toDocument();
   host.innerHTML = `
     <form id="solverForm" autocomplete="off">
+      <div class="section-label">Función objetivo</div>
+
       <div class="field">
         <label for="objCell">${t('label.objective')}</label>
         <div class="input-row">
-          <input id="objCell" type="text" value="${esc(doc.objective.cellA1)}" />
-          <button type="button" data-action="pick-obj">⌖</button>
+          <input id="objCell" type="text" value="${esc(doc.objective.cellA1)}" placeholder="Ej: B12" />
+          <button type="button" class="pick-btn" data-action="pick-obj" title="Seleccioná un rango en la hoja">⌖</button>
         </div>
         <div class="hint" id="objError"></div>
       </div>
@@ -45,19 +47,25 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
         </label>
       </fieldset>
 
+      <div class="section-label">Variables de decisión</div>
+
       <div class="field">
         <label for="varsRange">${t('label.variables')}</label>
         <div class="input-row">
-          <input id="varsRange" type="text" value="${esc(doc.variables.rangeA1)}" />
-          <button type="button" data-action="pick-vars">⌖</button>
+          <input id="varsRange" type="text" value="${esc(doc.variables.rangeA1)}" placeholder="Ej: B3:B7" />
+          <button type="button" class="pick-btn" data-action="pick-vars" title="Seleccioná un rango en la hoja">⌖</button>
         </div>
         <div class="hint" id="varsError"></div>
+        <div id="varsSummary" class="summary-inline"></div>
       </div>
 
+      <div class="section-label">Restricciones</div>
+
       <div class="field">
-        <label>${t('label.constraints')}</label>
         <div id="constraintsHost"></div>
       </div>
+
+      <div class="section-label">Opciones</div>
 
       <div class="field">
         <label><input id="assumeNN" type="checkbox" ${doc.options.assumeNonNegative ? 'checked' : ''} />
@@ -66,13 +74,18 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
 
       <div class="field">
         <label for="method">${t('label.method')}</label>
-        <select id="method"><option value="simplexLp" selected>${t('method.simplexLp')}</option></select>
-        <button type="button" data-action="options">⚙ ${t('btn.options')}</button>
+        <div class="input-row">
+          <select id="method" style="flex:1;"><option value="simplexLp" selected>${t('method.simplexLp')}</option></select>
+          <button type="button" data-action="options">⚙ ${t('btn.options')}</button>
+        </div>
+        <div id="optsSummary" class="options-summary"></div>
       </div>
 
       <div class="actions">
-        <button type="button" data-action="save">${t('btn.save')}</button>
-        <button type="button" data-action="solve" class="primary">${t('btn.solve')}</button>
+        <button type="button" data-action="save">💾 ${t('btn.save')}</button>
+        <div class="right">
+          <button type="button" data-action="solve" class="primary">▶ ${t('btn.solve')}</button>
+        </div>
       </div>
       <div id="savedMessage" class="msg" style="display:none;">${t('msg.saved')}</div>
     </form>
@@ -85,12 +98,45 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
   const assumeNN = host.querySelector<HTMLInputElement>('#assumeNN')!;
   const targetValue = host.querySelector<HTMLInputElement>('#targetValue')!;
   const constraintsHost = host.querySelector<HTMLDivElement>('#constraintsHost')!;
-  const savedMessage = host.querySelector<HTMLDivElement>('#savedMessage')!;
 
   const objPickBtn = host.querySelector<HTMLButtonElement>('[data-action="pick-obj"]')!;
   const varsPickBtn = host.querySelector<HTMLButtonElement>('[data-action="pick-vars"]')!;
+  const varsSummary = host.querySelector<HTMLDivElement>('#varsSummary')!;
+  const optsSummary = host.querySelector<HTMLDivElement>('#optsSummary')!;
   const objPicker = makeRangePicker(objCell, objPickBtn);
   const varsPicker = makeRangePicker(varsRange, varsPickBtn);
+
+  function updateVarsSummary(): void {
+    const r = varsRange.value;
+    if (r === '' || !isValidA1(r)) { varsSummary.textContent = ''; return; }
+    // Best-effort count from A1 range
+    const m = r.match(/(\$?[A-Z]+\$?[1-9][0-9]{0,6})(?::(\$?[A-Z]+\$?[1-9][0-9]{0,6}))?$/);
+    if (!m) { varsSummary.textContent = ''; return; }
+    const start = m[1]!.replace(/\$/g, '');
+    const end = m[2] ? m[2].replace(/\$/g, '') : start;
+    const parse = (s: string): [number, number] | null => {
+      const mm = s.match(/^([A-Z]+)([0-9]+)$/);
+      if (!mm) return null;
+      const col = mm[1]!.split('').reduce((a, c) => a * 26 + (c.charCodeAt(0) - 64), 0);
+      const row = Number(mm[2]);
+      return [row, col];
+    };
+    const s = parse(start);
+    const e = parse(end);
+    if (!s || !e) { varsSummary.textContent = ''; return; }
+    const count = (Math.abs(e[0] - s[0]) + 1) * (Math.abs(e[1] - s[1]) + 1);
+    varsSummary.textContent = `${count} ${count === 1 ? 'variable detectada' : 'variables detectadas'}`;
+  }
+
+  function updateOptsSummary(): void {
+    const o = opts.draft.toDocument().options;
+    optsSummary.innerHTML =
+      `<span class="chip">Tiempo máx ${o.timeLimitSec}s</span>` +
+      `<span class="chip">Gap MIP ${(o.mipGap * 100).toFixed(2)}%</span>` +
+      `<span class="chip">Tol entera ${o.integerTolerance}</span>`;
+  }
+  updateVarsSummary();
+  updateOptsSummary();
 
   mountConstraintsList(constraintsHost, {
     parent: host,
@@ -117,6 +163,7 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
       names: [],
       assumeNonNegative: assumeNN.checked,
     });
+    updateVarsSummary();
   }
 
   objCell.addEventListener('change', syncObjective);
@@ -139,14 +186,14 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
     } else if (action === 'options') {
       openOptionsModal(host, {
         initial: opts.draft.toDocument().options,
-        onAccept: (newOpts) => opts.draft.setOptions(newOpts),
+        onAccept: (newOpts) => {
+          opts.draft.setOptions(newOpts);
+          updateOptsSummary();
+        },
       });
     } else if (action === 'save') {
       await opts.onSave();
-      savedMessage.style.display = '';
-      setTimeout(() => {
-        savedMessage.style.display = 'none';
-      }, 2000);
+      showToast(t('msg.saved'));
     } else if (action === 'solve') {
       await runSolveFlow(host, opts.draft);
     }
@@ -163,11 +210,17 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
 
   try {
     const v = await validateModel(modelDoc);
+    if (v == null) {
+      throw new Error('La validación no devolvió respuesta. ¿Refrescaste la hoja después del último push?');
+    }
     if (!v.ok) {
       throw new Error((v.errors ?? ['Error de validación']).join('\n'));
     }
 
     const ex = await extractLinearForm(modelDoc);
+    if (ex == null) {
+      throw new Error('La extracción no devolvió respuesta. Probablemente el modelo contiene valores infinitos o NaN que la RPC no puede serializar.');
+    }
     if (!ex.ok || !ex.linearForm) {
       throw new Error((ex.errors ?? ['Error de extracción']).join('\n'));
     }
@@ -235,4 +288,16 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
 
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function showToast(message: string): void {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.2s';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 200);
+  }, 2500);
 }
