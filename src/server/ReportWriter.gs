@@ -64,18 +64,11 @@ function writeResults(req) {
   }
 
   // 4. Graphical solution (only for 2-var LP).
-  // The client renders the SVG to PNG via Canvas and ships it as base64
-  // because Apps Script's Utilities can't actually convert image/svg+xml.
-  if (req.writeReports && req.writeReports.graphical && req.graphicalPngBase64) {
+  // Uses a native Google Sheets scatter chart over a structured data block.
+  if (req.writeReports && req.writeReports.graphical && req.graphicalData) {
     var graphSheet = createReportSheet_('Solución gráfica');
     graphSheet.setTabColor('#137333');
-    try {
-      var bytes = Utilities.base64Decode(req.graphicalPngBase64);
-      var pngBlob = Utilities.newBlob(bytes, 'image/png', 'plot.png');
-      graphSheet.insertImage(pngBlob, 2, 2);
-    } catch (e) {
-      graphSheet.getRange(1, 1).setValue('No se pudo insertar la imagen: ' + e.message);
-    }
+    writeGraphicalChart_(graphSheet, req.graphicalData);
     sheetNames.push(graphSheet.getName());
   }
 
@@ -192,4 +185,135 @@ function pasteAndFormat_(sheet, matrix, tabColor) {
   sheet.setFrozenRows(2);
   sheet.getRange(3, 1, nRows - 2, nCols)
     .setBorder(null, null, null, null, null, true, '#DADCE0', SpreadsheetApp.BorderStyle.SOLID);
+}
+
+/**
+ * Builds the "Solución gráfica" sheet: writes the plot data block and inserts
+ * a native Google Sheets scatter chart referencing it.
+ *
+ * Series layout (one column pair per series, side-by-side blocks):
+ *   A:B   constraint c1 (line)
+ *   C:D   constraint c2 (line)
+ *   ...
+ *   N:N+1 vertices (points)
+ *   M:M+1 optimum (single point with star marker)
+ *   ...   objective level lines (dashed)
+ *
+ * @param {Sheet} sheet
+ * @param {object} g - GraphicalData from the client
+ */
+function writeGraphicalChart_(sheet, g) {
+  sheet.getRange(1, 1)
+    .setValue('AltSolver · Solución gráfica')
+    .setFontSize(18).setFontWeight('bold');
+  sheet.getRange(2, 1)
+    .setValue('Eje x: ' + g.xName + '   ·   Eje y: ' + g.yName + '   ·   Óptimo: z = ' + Number(g.optimum.z.toPrecision(6)))
+    .setFontSize(11).setFontColor('#5f6368');
+
+  // Data block starts at row 4.
+  var BLOCK_ROW = 4;
+  var col = 1;
+  var series = []; // { name, range, type, color }
+
+  var COLORS = ['#1a73e8', '#137333', '#9334E8', '#B06000', '#C5221F', '#00838F'];
+
+  // Constraint lines
+  for (var i = 0; i < g.constraintLines.length; i++) {
+    var cl = g.constraintLines[i];
+    sheet.getRange(BLOCK_ROW, col, 1, 2).setValues([['x', cl.name]]).setFontWeight('bold');
+    sheet.getRange(BLOCK_ROW + 1, col, 2, 2).setValues([
+      [cl.p1.x, cl.p1.y],
+      [cl.p2.x, cl.p2.y],
+    ]);
+    series.push({
+      range: sheet.getRange(BLOCK_ROW, col, 3, 2),
+      kind: 'line',
+      color: COLORS[i % COLORS.length],
+    });
+    col += 3; // 2 data cols + 1 gap
+  }
+
+  // Vertices
+  if (g.vertices.length > 0) {
+    sheet.getRange(BLOCK_ROW, col, 1, 2).setValues([['x', 'Vértices']]).setFontWeight('bold');
+    var vData = g.vertices.map(function (v) { return [v.x, v.y]; });
+    sheet.getRange(BLOCK_ROW + 1, col, vData.length, 2).setValues(vData);
+    series.push({
+      range: sheet.getRange(BLOCK_ROW, col, 1 + vData.length, 2),
+      kind: 'point',
+      color: '#5f6368',
+    });
+    col += 3;
+  }
+
+  // Optimum
+  sheet.getRange(BLOCK_ROW, col, 1, 2).setValues([['x', 'Óptimo']]).setFontWeight('bold');
+  sheet.getRange(BLOCK_ROW + 1, col, 1, 2).setValues([[g.optimum.x, g.optimum.y]]);
+  series.push({
+    range: sheet.getRange(BLOCK_ROW, col, 2, 2),
+    kind: 'star',
+    color: '#1a73e8',
+  });
+  col += 3;
+
+  // Objective level lines
+  for (var k = 0; k < g.objectiveLines.length; k++) {
+    var ol = g.objectiveLines[k];
+    var label = 'z = ' + Number(ol.z.toPrecision(4));
+    sheet.getRange(BLOCK_ROW, col, 1, 2).setValues([['x', label]]).setFontWeight('bold');
+    sheet.getRange(BLOCK_ROW + 1, col, 2, 2).setValues([
+      [ol.p1.x, ol.p1.y],
+      [ol.p2.x, ol.p2.y],
+    ]);
+    var isOpt = (k === g.objectiveLines.length - 1);
+    series.push({
+      range: sheet.getRange(BLOCK_ROW, col, 3, 2),
+      kind: 'dashed',
+      color: isOpt ? '#202124' : '#9aa0a6',
+    });
+    col += 3;
+  }
+
+  // Build the chart — referencing each series block as a separate range.
+  var builder = sheet.newChart()
+    .asScatterChart()
+    .setPosition(2, col + 1, 0, 0)
+    .setOption('title', 'AltSolver · Solución gráfica')
+    .setOption('titleTextStyle', { fontSize: 16, bold: true, color: '#202124' })
+    .setOption('hAxis', { title: g.xName, titleTextStyle: { italic: false }, gridlines: { color: '#f1f3f4' } })
+    .setOption('vAxis', { title: g.yName, titleTextStyle: { italic: false }, gridlines: { color: '#f1f3f4' } })
+    .setOption('chartArea', { left: 60, top: 50, width: '78%', height: '72%' })
+    .setOption('legend', { position: 'right' })
+    .setOption('width', 900)
+    .setOption('height', 600);
+
+  var seriesOptions = {};
+  for (var s = 0; s < series.length; s++) {
+    builder = builder.addRange(series[s].range);
+    var opts;
+    if (series[s].kind === 'line') {
+      opts = { lineWidth: 2.5, pointSize: 0, color: series[s].color };
+    } else if (series[s].kind === 'point') {
+      opts = { lineWidth: 0, pointSize: 7, color: series[s].color, pointShape: 'circle' };
+    } else if (series[s].kind === 'star') {
+      opts = { lineWidth: 0, pointSize: 16, color: series[s].color, pointShape: 'star' };
+    } else { // dashed
+      opts = {
+        lineWidth: 1.5, pointSize: 0, color: series[s].color,
+        lineDashStyle: [4, 4],
+      };
+    }
+    seriesOptions[s] = opts;
+  }
+  builder = builder.setOption('series', seriesOptions);
+
+  sheet.insertChart(builder.build());
+
+  // Cosmetics on the data block (small + grey)
+  for (var c = 1; c < col; c++) {
+    sheet.setColumnWidth(c, 70);
+    sheet.getRange(BLOCK_ROW, c, 1, 1).setBackground('#F1F3F4');
+  }
+  sheet.getRange(BLOCK_ROW, 1, sheet.getLastRow() - BLOCK_ROW + 1, col - 1)
+    .setFontSize(10).setFontColor('#5f6368');
 }
