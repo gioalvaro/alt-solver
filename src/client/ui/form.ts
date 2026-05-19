@@ -205,10 +205,17 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
 
   const overlay = document.createElement('div');
   overlay.className = 'solving-overlay';
-  overlay.innerHTML = `<div class="spinner"></div><div class="muted">Resolviendo…</div>`;
+  overlay.innerHTML = `
+    <div class="spinner"></div>
+    <div class="muted" id="solvePhase">Validando modelo…</div>
+    <div class="muted small" id="solveHint">Esto puede tardar algunos segundos. La hoja se va a actualizar mientras AltSolver mide los coeficientes de cada variable.</div>
+  `;
   host.appendChild(overlay);
+  const phaseEl = overlay.querySelector<HTMLDivElement>('#solvePhase')!;
+  const setPhase = (msg: string): void => { phaseEl.textContent = msg; };
 
   try {
+    setPhase('Validando modelo…');
     const v = await validateModel(modelDoc);
     if (v == null) {
       throw new Error('La validación no devolvió respuesta. ¿Refrescaste la hoja después del último push?');
@@ -217,6 +224,7 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
       throw new Error((v.errors ?? ['Error de validación']).join('\n'));
     }
 
+    setPhase('Extrayendo coeficientes del modelo (esto es lo más lento)…');
     const ex = await extractLinearForm(modelDoc);
     if (ex == null) {
       throw new Error('La extracción no devolvió respuesta. Probablemente el modelo contiene valores infinitos o NaN que la RPC no puede serializar.');
@@ -251,11 +259,13 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
       );
     }
 
+    setPhase('Cargando motor (HiGHS) y resolviendo…');
     const sr = await runSolve(lf, {
       timeLimitSec: modelDoc.options.timeLimitSec,
       mipRelGap: modelDoc.options.mipGap,
     });
 
+    setPhase('Listo. Preparando reportes…');
     const ctx = {
       sheetName: '',
       timestamp: new Date().toLocaleString('es-AR'),

@@ -25,13 +25,19 @@ export interface RangePicker {
 }
 
 export function makeRangePicker(input: HTMLInputElement, button: HTMLElement): RangePicker {
-  let mode: 'idle' | 'picking' = 'idle';
+  let mode: 'idle' | 'picking' | 'capturing' = 'idle';
+  const originalLabel = button.innerHTML;
 
   return {
     isPicking(): boolean {
       return mode === 'picking';
     },
     async toggle(): Promise<void> {
+      // Block clicks while we're already capturing — Apps Script RPC can
+      // take a couple of seconds. Otherwise the user clicks again and we
+      // end up with overlapping toggle calls.
+      if (mode === 'capturing') return;
+
       if (mode === 'idle') {
         mode = 'picking';
         button.classList.add('picking');
@@ -44,15 +50,29 @@ export function makeRangePicker(input: HTMLInputElement, button: HTMLElement): R
         }
         return;
       }
-      const a1 = await getActiveRangeA1();
-      if (a1) {
-        input.value = a1;
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      mode = 'idle';
+
+      // mode === 'picking' → capturing the active range from the sheet.
+      mode = 'capturing';
       button.classList.remove('picking');
-      button.setAttribute('aria-pressed', 'false');
-      button.title = 'Seleccioná un rango en la hoja';
+      button.classList.add('capturing');
+      button.setAttribute('aria-disabled', 'true');
+      button.innerHTML = '<span class="pick-spinner"></span>';
+      button.title = 'Leyendo selección…';
+
+      try {
+        const a1 = await getActiveRangeA1();
+        if (a1) {
+          input.value = a1;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } finally {
+        mode = 'idle';
+        button.classList.remove('capturing');
+        button.removeAttribute('aria-disabled');
+        button.innerHTML = originalLabel;
+        button.setAttribute('aria-pressed', 'false');
+        button.title = 'Seleccioná un rango en la hoja';
+      }
     },
   };
 }
