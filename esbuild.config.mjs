@@ -14,4 +14,7 @@ await build({
   outfile: 'dist/client-bundle.js',
   legalComments: 'none',
   logLevel: 'info',
+  loader: {
+    '.wasm': 'binary', // embeds wasm as Uint8Array
+  },
 });
