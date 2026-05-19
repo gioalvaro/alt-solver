@@ -1,6 +1,7 @@
-import type { LinearForm, SolveResult, SolveStatus } from '../../shared/linear-form';
+import type { LinearForm, SolveResult } from '../../shared/linear-form';
 import { getHighs, type HighsRawResult } from './highs-loader';
 import { toLpFormat } from './model-builder';
+import { mapStatus, mapRowStatus } from './solve-status';
 
 export interface SolveOptions {
   timeLimitSec: number;
@@ -69,23 +70,4 @@ export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<Solv
     time: elapsed,
     isMip,
   };
-}
-
-export function mapStatus(raw: string): SolveStatus {
-  const s = (raw || '').toLowerCase();
-  if (s === 'optimal') return 'optimal';
-  if (s.includes('infeasible')) return 'infeasible';
-  if (s.includes('unbounded')) return 'unbounded';
-  if (s.includes('time limit')) return 'time_limit';
-  if (s.includes('iteration limit')) return 'iter_limit';
-  return 'error';
-}
-
-function mapRowStatus(s: string | undefined): 'basic' | 'lower' | 'upper' | 'free' {
-  if (!s) return 'free';
-  const l = s.toLowerCase();
-  if (l.includes('basic')) return 'basic';
-  if (l.includes('lower')) return 'lower';
-  if (l.includes('upper')) return 'upper';
-  return 'free';
 }

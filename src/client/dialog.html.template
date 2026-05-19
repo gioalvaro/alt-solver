@@ -46,6 +46,34 @@
     .modal { background: white; padding: 20px; border-radius: 8px; min-width: 320px; max-width: 480px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
     .modal h2 { margin-top: 0; font-size: 18px; font-weight: 500; }
     .modal .row { margin-bottom: 12px; }
+    .solving-overlay {
+      position: fixed; inset: 0; background: rgba(255,255,255,0.85);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px; z-index: 1000;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #dadce0; border-top-color: #1a73e8;
+      border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .muted { color: #5f6368; font-size: 14px; }
+    .banner { padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+    .banner .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .banner-ok { background: #E6F4EA; color: #137333; }
+    .banner-ok .dot { background: #137333; }
+    .banner-warn { background: #FEF7E0; color: #B06000; }
+    .banner-warn .dot { background: #B06000; }
+    .banner-err { background: #FCE8E6; color: #C5221F; }
+    .banner-err .dot { background: #C5221F; }
+    .modal-results { min-width: 420px; max-width: 480px; }
+    .modal-results .section { margin-bottom: 16px; }
+    .modal-results .small { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; color: #5f6368; }
+    .big-number { font-size: 32px; font-weight: 500; color: #202124; line-height: 1.1; }
+    .big-number .delta { font-size: 14px; color: #5f6368; margin-left: 8px; }
+    .kv { width: 100%; border-collapse: collapse; }
+    .kv td { padding: 6px 4px; font-size: 13px; }
+    .kv td:first-child { color: #5f6368; width: 35%; }
   </style>
 </head>
 <body>
