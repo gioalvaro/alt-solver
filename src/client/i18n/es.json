@@ -33,5 +33,20 @@
   "options.integerTolerance": "Tolerancia entera",
   "msg.saved": "Modelo guardado",
   "msg.invalidA1": "Referencia inválida",
-  "msg.targetValueRequired": "Indicá el valor objetivo"
+  "msg.targetValueRequired": "Indicá el valor objetivo",
+  "err.objective_empty": "Definí la celda objetivo antes de resolver.",
+  "err.variables_empty": "Definí al menos una celda de variable.",
+  "err.a1_invalid": "Referencia inválida.",
+  "err.eval_not_number": "La celda {cell} no devuelve un número (valor: {value}). Revisá la fórmula.",
+  "err.var_has_formula": "Las celdas de variables no pueden contener fórmulas. Encontradas: {cells}.",
+  "err.linearity_warning": "El modelo no parece lineal en la celda {cell}. Los resultados podrían ser incorrectos.",
+  "err.integrality_outside_vars": "La restricción {reason} apunta a una celda fuera del rango de variables.",
+  "err.solver_infeasible": "El modelo no tiene solución factible. Revisá restricciones contradictorias.",
+  "err.solver_unbounded": "La función objetivo es no acotada. Probablemente falta una cota superior en alguna variable.",
+  "err.solver_time_limit_feasible": "Solución encontrada pero no óptima (se agotó el tiempo). Gap actual: {gap}.",
+  "err.solver_time_limit_no_feasible": "Se agotó el tiempo sin encontrar una solución factible. Probá aumentar el tiempo máximo en Opciones.",
+  "err.solver_error": "Error interno del solver.",
+  "err.rpc_failed": "Error de comunicación con la hoja. Reintentando…",
+  "err.wasm_load_failed": "El navegador no pudo cargar el motor de cálculo. Probá refrescar o usar Chrome/Firefox actualizado.",
+  "err.quota_exceeded": "Google limitó las operaciones del add-on. Esperá unos minutos."
 }
