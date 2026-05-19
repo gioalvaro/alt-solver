@@ -13,8 +13,7 @@ import {
 import { runSolve } from '../solver/solve';
 import { buildAnswerMatrix } from '../reports/answer';
 import { buildSensitivityMatrix } from '../reports/sensitivity';
-import { buildGraphicalSvg } from '../reports/graphical';
-import { svgToPngBase64 } from '../reports/svg-to-png';
+import { buildGraphicalData } from '../reports/graphical';
 import { openResultsModal } from './results-modal';
 import type { LinearForm } from '../../shared/linear-form';
 
@@ -274,7 +273,7 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
     };
     const answerMatrix = buildAnswerMatrix(lf, sr, ctx);
     const sensitivityMatrix = buildSensitivityMatrix(lf, sr, ctx);
-    const graphicalSvg = buildGraphicalSvg(lf, sr);
+    const graphicalData = buildGraphicalData(lf, sr);
 
     overlay.remove();
 
@@ -289,14 +288,6 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
         try {
           if (!choice.keepSolution) {
             await restoreSnapshot(modelDoc, ex.snapshot);
-          }
-          let graphicalPngBase64: string | null = null;
-          if (choice.writeGraphical && graphicalSvg) {
-            try {
-              graphicalPngBase64 = await svgToPngBase64(graphicalSvg, 800, 600);
-            } catch (e) {
-              console.warn('[AltSolver] SVG→PNG conversion failed:', e);
-            }
           }
           if (
             choice.keepSolution ||
@@ -313,7 +304,7 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
               },
               answerMatrix: choice.writeAnswer ? answerMatrix : null,
               sensitivityMatrix: choice.writeSensitivity ? sensitivityMatrix : null,
-              graphicalPngBase64,
+              graphicalData: choice.writeGraphical ? graphicalData : null,
               snapshot: ex.snapshot,
               keepSolution: choice.keepSolution,
               writeReports: {
