@@ -226,6 +226,31 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
     }
     const lf = ex.linearForm as LinearForm;
 
+    // Sanity check: if no constraint's coefficients depend on any variable,
+    // the user's LHS formulas don't actually reference the variables.
+    // HiGHS will reject this as "Empty model" / parser error.
+    const objHasCoef = lf.objective.coefs.some((c) => Math.abs(c) > 1e-12);
+    const allRowsZero = lf.rows.length > 0 && lf.rows.every(
+      (r) => r.coefs.every((c) => Math.abs(c) <= 1e-12),
+    );
+    if (!objHasCoef && allRowsZero) {
+      throw new Error(
+        'Ni el objetivo ni las restricciones dependen de las variables. ' +
+        'Las celdas LHS (' + lf.rows.map((r) => r.lhsA1).join(', ') +
+        ') y la celda objetivo (' + lf.objective.cellA1 + ') probablemente contienen ' +
+        'constantes en lugar de fórmulas que multipliquen los coeficientes por las variables. ' +
+        'Por ejemplo: =SUMPRODUCT(coeficientes, variables).',
+      );
+    }
+    if (allRowsZero) {
+      throw new Error(
+        'Ninguna de las restricciones depende de las variables. Las celdas ' +
+        lf.rows.map((r) => r.lhsA1).join(', ') +
+        ' probablemente contienen constantes en lugar de fórmulas. ' +
+        'Necesitás fórmulas como =SUMPRODUCT(coeficientes, variables) o =B7*B2 + C7*C2.',
+      );
+    }
+
     const sr = await runSolve(lf, {
       timeLimitSec: modelDoc.options.timeLimitSec,
       mipRelGap: modelDoc.options.mipGap,

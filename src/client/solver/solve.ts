@@ -36,6 +36,10 @@ export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<Solv
   const status = mapStatus(raw.Status);
   const isMip = lf.vars.some((v) => v.integral);
 
+  // Surface the raw status if HiGHS rejected the model with something we
+  // don't have a friendly mapping for — much easier to debug than just "error".
+  const rawStatusMessage = status === 'error' ? `HiGHS: ${raw.Status || 'sin status'}` : undefined;
+
   const cols = Object.values(raw.Columns || {}).sort((a, b) => a.Index - b.Index);
 
   const variables = lf.vars.map((v, i) => {
@@ -69,5 +73,6 @@ export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<Solv
     iterations: 0,
     time: elapsed,
     isMip,
+    message: rawStatusMessage,
   };
 }
