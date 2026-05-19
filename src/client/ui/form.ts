@@ -4,6 +4,17 @@ import { t } from '../i18n/i18n';
 import { mountConstraintsList } from './constraints-list';
 import { openOptionsModal } from './options-modal';
 import { makeRangePicker } from './range-picker';
+import {
+  validateModel,
+  extractLinearForm,
+  writeResults,
+  restoreSnapshot,
+} from '../rpc/server-bridge';
+import { runSolve } from '../solver/solve';
+import { buildAnswerMatrix } from '../reports/answer';
+import { buildSensitivityMatrix } from '../reports/sensitivity';
+import { openResultsModal } from './results-modal';
+import type { LinearForm } from '../../shared/linear-form';
 
 interface Opts {
   draft: ModelDraft;
@@ -61,7 +72,7 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
 
       <div class="actions">
         <button type="button" data-action="save">${t('btn.save')}</button>
-        <button type="button" data-action="solve" disabled title="${t('btn.solve.disabled')}">${t('btn.solve')}</button>
+        <button type="button" data-action="solve" class="primary">${t('btn.solve')}</button>
       </div>
       <div id="savedMessage" class="msg" style="display:none;">${t('msg.saved')}</div>
     </form>
@@ -136,8 +147,90 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
       setTimeout(() => {
         savedMessage.style.display = 'none';
       }, 2000);
+    } else if (action === 'solve') {
+      await runSolveFlow(host, opts.draft);
     }
   });
+}
+
+async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void> {
+  const modelDoc = draft.toDocument();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'solving-overlay';
+  overlay.innerHTML = `<div class="spinner"></div><div class="muted">Resolviendo…</div>`;
+  host.appendChild(overlay);
+
+  try {
+    const v = await validateModel(modelDoc);
+    if (!v.ok) {
+      throw new Error((v.errors ?? ['Error de validación']).join('\n'));
+    }
+
+    const ex = await extractLinearForm(modelDoc);
+    if (!ex.ok || !ex.linearForm) {
+      throw new Error((ex.errors ?? ['Error de extracción']).join('\n'));
+    }
+    const lf = ex.linearForm as LinearForm;
+
+    const sr = await runSolve(lf, {
+      timeLimitSec: modelDoc.options.timeLimitSec,
+      mipRelGap: modelDoc.options.mipGap,
+    });
+
+    const ctx = {
+      sheetName: '',
+      timestamp: new Date().toLocaleString('es-AR'),
+    };
+    const answerMatrix = buildAnswerMatrix(lf, sr, ctx);
+    const sensitivityMatrix = buildSensitivityMatrix(lf, sr, ctx);
+
+    overlay.remove();
+
+    openResultsModal(host, {
+      lf,
+      sr,
+      onAccept: async (choice) => {
+        const reqOverlay = document.createElement('div');
+        reqOverlay.className = 'solving-overlay';
+        reqOverlay.innerHTML = `<div class="spinner"></div><div class="muted">Escribiendo reportes…</div>`;
+        host.appendChild(reqOverlay);
+        try {
+          if (!choice.keepSolution) {
+            await restoreSnapshot(modelDoc, ex.snapshot);
+          }
+          if (choice.keepSolution || choice.writeAnswer || choice.writeSensitivity) {
+            await writeResults({
+              modelDoc,
+              solveResult: {
+                variableValuesFlat: sr.variables.map((v) => v.primal),
+                objectiveValue: sr.objective,
+                isMip: sr.isMip,
+              },
+              answerMatrix: choice.writeAnswer ? answerMatrix : null,
+              sensitivityMatrix: choice.writeSensitivity ? sensitivityMatrix : null,
+              snapshot: ex.snapshot,
+              keepSolution: choice.keepSolution,
+              writeReports: { answer: choice.writeAnswer, sensitivity: choice.writeSensitivity },
+            });
+          }
+        } finally {
+          reqOverlay.remove();
+        }
+        try {
+          google.script.host?.close?.();
+        } catch {
+          /* ignore */
+        }
+      },
+      onCancel: async () => {
+        await restoreSnapshot(modelDoc, ex.snapshot);
+      },
+    });
+  } catch (e) {
+    overlay.remove();
+    alert(`AltSolver — ${(e as Error).message}`);
+  }
 }
 
 function esc(s: string): string {

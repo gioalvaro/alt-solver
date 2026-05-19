@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapStatus } from '../../src/client/solver/solve';
+import { mapStatus } from '../../src/client/solver/solve-status';
 
 describe('mapStatus', () => {
   it('Optimal → optimal', () => {
