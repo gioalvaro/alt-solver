@@ -6,6 +6,7 @@ export interface ResultsModalChoice {
   keepSolution: boolean;
   writeAnswer: boolean;
   writeSensitivity: boolean;
+  writeGraphical: boolean;
 }
 
 interface OpenOpts {
@@ -47,8 +48,9 @@ export function openResultsModal(parent: HTMLElement, opts: OpenOpts): void {
       const keep = keepEl?.value === 'keep';
       const writeAnswer = overlay.querySelector<HTMLInputElement>('#chk-answer')?.checked ?? true;
       const writeSensitivity = overlay.querySelector<HTMLInputElement>('#chk-sensitivity')?.checked ?? false;
+      const writeGraphical = overlay.querySelector<HTMLInputElement>('#chk-graphical')?.checked ?? false;
       overlay.remove();
-      await opts.onAccept({ keepSolution: keep, writeAnswer, writeSensitivity });
+      await opts.onAccept({ keepSolution: keep, writeAnswer, writeSensitivity, writeGraphical });
     }
   });
 }
@@ -105,6 +107,11 @@ function choicesHtml(sr: SolveResult): string {
   if (!isFeasible) return '';
   const sensitivityDisabled = sr.isMip ? 'disabled' : '';
   const sensitivityNote = sr.isMip ? '<div class="muted small">No disponible para problemas enteros (igual que Excel).</div>' : '';
+  const canGraph = sr.variables.length === 2 && !sr.isMip;
+  const graphicalRow = canGraph
+    ? `<br/><label><input id="chk-graphical" type="checkbox" checked /> Solución gráfica</label>
+       <div class="muted small">Plot de la región factible, vértices, y nivel objetivo (sólo 2 variables).</div>`
+    : '';
   return `
     <div class="section">
       <div class="muted small">Solución</div>
@@ -116,6 +123,7 @@ function choicesHtml(sr: SolveResult): string {
       <label><input id="chk-answer" type="checkbox" checked /> Respuesta</label><br/>
       <label><input id="chk-sensitivity" type="checkbox" ${sr.isMip ? '' : 'checked'} ${sensitivityDisabled} /> Sensibilidad</label>
       ${sensitivityNote}
+      ${graphicalRow}
     </div>
   `;
 }

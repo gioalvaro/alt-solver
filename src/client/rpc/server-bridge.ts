@@ -53,9 +53,10 @@ export interface WriteResultsRequest {
   solveResult: { variableValuesFlat: number[]; objectiveValue: number; isMip: boolean };
   answerMatrix: unknown[][] | null;
   sensitivityMatrix: unknown[][] | null;
+  graphicalSvg: string | null;
   snapshot: unknown;
   keepSolution: boolean;
-  writeReports: { answer: boolean; sensitivity: boolean };
+  writeReports: { answer: boolean; sensitivity: boolean; graphical: boolean };
 }
 
 export function writeResults(req: WriteResultsRequest): Promise<{ ok: boolean; sheetNames: string[] }> {

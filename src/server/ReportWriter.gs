@@ -63,6 +63,22 @@ function writeResults(req) {
     sheetNames.push(sensSheet.getName());
   }
 
+  // 4. Graphical solution (only for 2-var LP)
+  if (req.writeReports && req.writeReports.graphical && req.graphicalSvg) {
+    var graphSheet = createReportSheet_('Solución gráfica');
+    graphSheet.setTabColor('#137333');
+    try {
+      var svgBlob = Utilities.newBlob(req.graphicalSvg, 'image/svg+xml', 'plot.svg');
+      var pngBlob = svgBlob.getAs('image/png');
+      graphSheet.insertImage(pngBlob, 2, 2);
+    } catch (e) {
+      // Fallback: write SVG source as text so user can copy / render externally.
+      graphSheet.getRange(1, 1).setValue('No se pudo convertir el SVG a imagen: ' + e.message);
+      graphSheet.getRange(2, 1).setValue(req.graphicalSvg);
+    }
+    sheetNames.push(graphSheet.getName());
+  }
+
   // 4. Persist solvedAt
   try {
     var sheet = SpreadsheetApp.getActiveSheet();
