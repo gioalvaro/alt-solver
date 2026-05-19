@@ -18,12 +18,16 @@ export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<Solv
   const t0 = performance.now();
   let raw: HighsRawResult;
   try {
+    // NOTE: do not pass output_flag:false — highs-js parses the textual
+    // solution output to build the result object. Suppressing output
+    // breaks parsing with 'Unable to parse solution. Too few lines.'
     raw = highs.solve(lp, {
       time_limit: opts.timeLimitSec,
       mip_rel_gap: opts.mipRelGap,
-      output_flag: false,
     });
+    console.warn('[AltSolver] Raw HiGHS result:', JSON.stringify(raw, null, 2));
   } catch (e) {
+    console.error('[AltSolver] HiGHS threw:', e);
     return {
       status: 'error',
       objective: 0,
@@ -32,7 +36,7 @@ export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<Solv
       iterations: 0,
       time: (performance.now() - t0) / 1000,
       isMip: lf.vars.some((v) => v.integral),
-      message: (e as Error).message,
+      message: `HiGHS exception: ${(e as Error).message || String(e)}`,
     };
   }
   const elapsed = (performance.now() - t0) / 1000;
