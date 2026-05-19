@@ -1,101 +1,58 @@
 import { getActiveRangeA1 } from '../rpc/server-bridge';
 
 /**
- * Range picker: two-step toggle that lets the user select a range on
- * the sheet while the dialog stays open (Excel-Solver-style).
+ * Range picker: a single-click "capture current selection" button.
  *
- * 1st click on the ⌖ button:
- *   - reads the current spreadsheet selection IMMEDIATELY into the input
- *     (so if the user already had the range selected, one click suffices)
- *   - enters "picking" mode (button highlighted blue)
- *   - starts a polling loop: every POLL_MS the dialog re-reads the active
- *     range and updates the input live (Excel-like cursor tracking)
+ * Apps Script's google.script.run round-trip is 1-5 seconds and there is no
+ * event for spreadsheet selection changes, so trying to mirror the sheet
+ * cursor in real time is not viable. Instead, each click on the ⌖ button
+ * grabs whatever the user currently has selected on the sheet.
  *
- * 2nd click on the ⌖ button:
- *   - stops the polling, exits "picking" mode
+ * Flow:
+ *  - User clicks a cell or drags a range on the sheet.
+ *  - User clicks the ⌖ button next to the input.
+ *  - The button shows a spinner while the active-range RPC is in flight.
+ *  - When it returns, the input is updated with the qualified A1 string.
+ *  - Re-clicking captures the (potentially different) current selection.
  *
- * Requires the host dialog to be *modeless* — see Dialog.gs's
- * showModelessDialog. Modal dialogs block the sheet so the user can't
- * click cells while one is open.
- *
- * The `google` global is declared in src/client/google.d.ts.
+ * The button is disabled (cursor:progress, click ignored) while a capture
+ * is in flight so the user can't queue overlapping calls.
  */
 export interface RangePicker {
   toggle(): Promise<void>;
   isPicking(): boolean;
 }
 
-const POLL_MS = 600;
-
 export function makeRangePicker(input: HTMLInputElement, button: HTMLElement): RangePicker {
-  let mode: 'idle' | 'picking' = 'idle';
-  let pollTimer: number | null = null;
   let inflight = false;
-
-  function applyCapturedValue(a1: string): void {
-    if (a1 && a1 !== input.value) {
-      input.value = a1;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-  }
-
-  async function tick(): Promise<void> {
-    if (inflight || mode !== 'picking') return;
-    inflight = true;
-    try {
-      const a1 = await getActiveRangeA1();
-      applyCapturedValue(a1);
-    } catch {
-      /* ignore transient errors */
-    } finally {
-      inflight = false;
-    }
-  }
-
-  function stopPolling(): void {
-    if (pollTimer !== null) {
-      window.clearInterval(pollTimer);
-      pollTimer = null;
-    }
-  }
+  const originalLabel = button.innerHTML;
 
   return {
     isPicking(): boolean {
-      return mode === 'picking';
+      return inflight;
     },
     async toggle(): Promise<void> {
-      if (mode === 'idle') {
-        mode = 'picking';
-        button.classList.add('picking');
-        button.setAttribute('aria-pressed', 'true');
-        button.title = 'Seguí seleccionando — clic acá cuando termines';
-        try {
-          google.script.host?.editor.focus();
-        } catch {
-          /* host bridge unavailable in unit tests */
-        }
-        // Immediate read so an already-selected range lands in the input
-        // on the very first click.
-        void tick();
-        // Live updates while the user changes the selection.
-        pollTimer = window.setInterval(() => {
-          void tick();
-        }, POLL_MS);
-        return;
-      }
-
-      // mode === 'picking' → stop and confirm whatever's in the input.
-      stopPolling();
-      mode = 'idle';
-      button.classList.remove('picking');
-      button.setAttribute('aria-pressed', 'false');
-      button.title = 'Seleccioná un rango en la hoja';
-      // One last sync to capture a selection that happened between ticks.
+      if (inflight) return;
+      inflight = true;
+      button.classList.add('capturing');
+      button.setAttribute('aria-disabled', 'true');
+      button.innerHTML = '<span class="pick-spinner"></span>';
+      const oldTitle = button.title;
+      button.title = 'Leyendo selección…';
       try {
         const a1 = await getActiveRangeA1();
-        applyCapturedValue(a1);
+        if (a1) {
+          input.value = a1;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
       } catch {
-        /* ignore */
+        /* swallow — user can retry */
+      } finally {
+        inflight = false;
+        button.classList.remove('capturing');
+        button.removeAttribute('aria-disabled');
+        button.innerHTML = originalLabel;
+        button.title = oldTitle || 'Capturar selección de la hoja';
       }
     },
   };

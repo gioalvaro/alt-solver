@@ -63,18 +63,18 @@ function writeResults(req) {
     sheetNames.push(sensSheet.getName());
   }
 
-  // 4. Graphical solution (only for 2-var LP)
-  if (req.writeReports && req.writeReports.graphical && req.graphicalSvg) {
+  // 4. Graphical solution (only for 2-var LP).
+  // The client renders the SVG to PNG via Canvas and ships it as base64
+  // because Apps Script's Utilities can't actually convert image/svg+xml.
+  if (req.writeReports && req.writeReports.graphical && req.graphicalPngBase64) {
     var graphSheet = createReportSheet_('Solución gráfica');
     graphSheet.setTabColor('#137333');
     try {
-      var svgBlob = Utilities.newBlob(req.graphicalSvg, 'image/svg+xml', 'plot.svg');
-      var pngBlob = svgBlob.getAs('image/png');
+      var bytes = Utilities.base64Decode(req.graphicalPngBase64);
+      var pngBlob = Utilities.newBlob(bytes, 'image/png', 'plot.png');
       graphSheet.insertImage(pngBlob, 2, 2);
     } catch (e) {
-      // Fallback: write SVG source as text so user can copy / render externally.
-      graphSheet.getRange(1, 1).setValue('No se pudo convertir el SVG a imagen: ' + e.message);
-      graphSheet.getRange(2, 1).setValue(req.graphicalSvg);
+      graphSheet.getRange(1, 1).setValue('No se pudo insertar la imagen: ' + e.message);
     }
     sheetNames.push(graphSheet.getName());
   }
