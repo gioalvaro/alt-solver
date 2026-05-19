@@ -11,6 +11,10 @@ export interface SolveOptions {
 export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<SolveResult> {
   const highs = await getHighs();
   const lp = toLpFormat(lf);
+  // Always log the LP for diagnostics — printed to the dialog iframe's
+  // DevTools console. Cheap, invaluable for debugging extraction issues.
+  console.warn('[AltSolver] LP file sent to HiGHS:\n' + lp);
+  console.warn('[AltSolver] LinearForm:', JSON.stringify(lf, null, 2));
   const t0 = performance.now();
   let raw: HighsRawResult;
   try {
