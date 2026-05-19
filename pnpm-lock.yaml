@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      highs:
+        specifier: ^1.8.0
+        version: 1.8.0
     devDependencies:
       '@google/clasp':
         specifier: ^2.4.2
@@ -1189,6 +1193,9 @@ packages:
   hasown@2.0.3:
     resolution: {integrity: sha512-ej4AhfhfL2Q2zpMmLo7U1Uv9+PyhIZpgQLGT1F9miIGmiCJIoCgSmczFdrc97mWT4kVY72KA+WnnhJ5pghSvSg==}
     engines: {node: '>= 0.4'}
+
+  highs@1.8.0:
+    resolution: {integrity: sha512-0QFXXjU/mxU1y3Ec44QpESq6STkPauNDfIPf0welcUGjilpVYnfH9RepBvr0t9YDQPUniIcZTX9xyxqxF668ag==}
 
   hosted-git-info@4.1.0:
     resolution: {integrity: sha512-kyCuEOWjJqZuDbRHzL8V93NzQhwIB71oFWSyzVo+KPZI+pnQPPxucdkrOZvkLRnrf5URsQM+IJ09Dw29cRALIA==}
@@ -3251,6 +3258,8 @@ snapshots:
   hasown@2.0.3:
     dependencies:
       function-bind: 1.1.2
+
+  highs@1.8.0: {}
 
   hosted-git-info@4.1.0:
     dependencies:
