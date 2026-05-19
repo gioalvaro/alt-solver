@@ -212,6 +212,18 @@
     .banner-warn .dot { background: #B06000; }
     .banner-err { background: #FCE8E6; color: #C5221F; }
     .banner-err .dot { background: #C5221F; }
+    .banner-detail {
+      margin-top: 8px;
+      margin-bottom: 16px;
+      padding: 10px 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+      color: #5f6368;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
     .modal-results { min-width: 420px; max-width: 480px; }
     .modal-results .section { margin-bottom: 16px; }
     .modal-results .small { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; color: #5f6368; }

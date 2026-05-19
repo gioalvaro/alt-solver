@@ -63,7 +63,8 @@ function bannerHtml(sr: SolveResult): string {
               : sr.status === 'time_limit' ? errorMessage('solver_time_limit_feasible', { gap: sr.mipGap ?? 0 })
               : sr.status === 'error' ? errorMessage('solver_error', {})
               : 'Resultado del Solver';
-  return `<div class="banner ${cls}"><span class="dot"></span><strong>${escapeHtml(title)}</strong></div>`;
+  const detail = sr.message ? `<div class="banner-detail">${escapeHtml(sr.message)}</div>` : '';
+  return `<div class="banner ${cls}"><span class="dot"></span><strong>${escapeHtml(title)}</strong></div>${detail}`;
 }
 
 function objectiveHtml(sr: SolveResult, lf: LinearForm): string {
