@@ -13,8 +13,11 @@ export function mapStatus(raw: string): SolveStatus {
 export function mapRowStatus(s: string | undefined): 'basic' | 'lower' | 'upper' | 'free' {
   if (!s) return 'free';
   const l = s.toLowerCase();
-  if (l.includes('basic')) return 'basic';
-  if (l.includes('lower')) return 'lower';
-  if (l.includes('upper')) return 'upper';
+  // HiGHS uses short codes (BS / LB / UB / EQ / FX) but some configurations
+  // emit textual forms (Basic / Lower / Upper / Free / Equal).
+  if (l === 'bs' || l.includes('basic')) return 'basic';
+  if (l === 'lb' || l.includes('lower')) return 'lower';
+  if (l === 'ub' || l.includes('upper')) return 'upper';
+  if (l === 'eq' || l === 'fx' || l.includes('equal') || l.includes('fixed')) return 'upper';
   return 'free';
 }

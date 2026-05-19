@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapStatus } from '../../src/client/solver/solve-status';
+import { mapStatus, mapRowStatus } from '../../src/client/solver/solve-status';
 
 describe('mapStatus', () => {
   it('Optimal → optimal', () => {
@@ -22,5 +22,25 @@ describe('mapStatus', () => {
   it('unknown status → error', () => {
     expect(mapStatus('Something weird')).toBe('error');
     expect(mapStatus('')).toBe('error');
+  });
+});
+
+describe('mapRowStatus', () => {
+  it('recognizes HiGHS short codes', () => {
+    expect(mapRowStatus('BS')).toBe('basic');
+    expect(mapRowStatus('LB')).toBe('lower');
+    expect(mapRowStatus('UB')).toBe('upper');
+    expect(mapRowStatus('EQ')).toBe('upper');
+    expect(mapRowStatus('FX')).toBe('upper');
+  });
+  it('recognizes long-form labels', () => {
+    expect(mapRowStatus('Basic')).toBe('basic');
+    expect(mapRowStatus('Lower')).toBe('lower');
+    expect(mapRowStatus('Upper')).toBe('upper');
+  });
+  it('falls back to free', () => {
+    expect(mapRowStatus(undefined)).toBe('free');
+    expect(mapRowStatus('')).toBe('free');
+    expect(mapRowStatus('Weird')).toBe('free');
   });
 });
