@@ -24,8 +24,8 @@ export function buildSensitivityMatrix(
       sv?.primal ?? 0,
       sv?.dual ?? 0,
       lf.objective.coefs[i] ?? 0,
-      sv?.rangeUp === null || sv?.rangeUp === undefined ? '∞' : sv.rangeUp,
-      sv?.rangeDown === null || sv?.rangeDown === undefined ? '∞' : sv.rangeDown,
+      fmtRange(sv?.rangeUp),
+      fmtRange(sv?.rangeDown),
     ]);
   });
   rows.push([]);
@@ -40,8 +40,8 @@ export function buildSensitivityMatrix(
       sRow?.primal ?? 0,
       sRow?.dual ?? 0,
       row.rhs,
-      sRow?.rangeUp === null || sRow?.rangeUp === undefined ? '∞' : sRow.rangeUp,
-      sRow?.rangeDown === null || sRow?.rangeDown === undefined ? '∞' : sRow.rangeDown,
+      fmtRange(sRow?.rangeUp),
+      fmtRange(sRow?.rangeDown),
     ]);
   });
 
@@ -50,4 +50,10 @@ export function buildSensitivityMatrix(
 
 function formatNum(x: number): string {
   return Number(x.toPrecision(6)).toString();
+}
+
+function fmtRange(x: number | null | undefined): string | number {
+  if (x === null || x === undefined) return '∞';
+  if (!isFinite(x)) return '∞';
+  return x;
 }
