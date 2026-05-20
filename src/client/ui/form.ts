@@ -13,8 +13,7 @@ import {
 import { runSolve } from '../solver/solve';
 import { buildAnswerMatrix } from '../reports/answer';
 import { buildSensitivityMatrix } from '../reports/sensitivity';
-import { buildGraphicalSvg } from '../reports/graphical';
-import { svgToPngBase64 } from '../reports/svg-to-png';
+import { buildGraphicalPng } from '../reports/graphical';
 import { openTemplatesModal } from './templates-modal';
 import { reloadApp } from '../app';
 import { openResultsModal } from './results-modal';
@@ -286,7 +285,17 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
     };
     const answerMatrix = buildAnswerMatrix(lf, sr, ctx);
     const sensitivityMatrix = buildSensitivityMatrix(lf, sr, ctx);
-    const graphicalSvg = buildGraphicalSvg(lf, sr);
+    let graphicalPngBase64: string | null = null;
+    let graphicalError: string | null = null;
+    try {
+      graphicalPngBase64 = buildGraphicalPng(lf, sr);
+      if (!graphicalPngBase64) {
+        graphicalError = 'No se pudo construir la solución gráfica (sólo soportada para 2 variables continuas con región factible no vacía).';
+      }
+    } catch (e) {
+      graphicalError = 'Error al renderizar el gráfico: ' + (e as Error).message;
+      console.error('[AltSolver] buildGraphicalPng threw:', e);
+    }
 
     overlay.remove();
 
@@ -302,24 +311,7 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
           if (!choice.keepSolution) {
             await restoreSnapshot(modelDoc, ex.snapshot);
           }
-          let graphicalPngBase64: string | null = null;
-          let graphicalError: string | null = null;
-          if (choice.writeGraphical) {
-            if (!graphicalSvg) {
-              graphicalError = 'No se pudo construir la solución gráfica (¿modelo con más de 2 variables o sin región factible?).';
-              console.warn('[AltSolver] buildGraphicalSvg returned null', { lfVars: lf.vars.length, isMip: sr.isMip, status: sr.status });
-            } else {
-              try {
-                console.warn('[AltSolver] Converting SVG to PNG (1000x750)…');
-                graphicalPngBase64 = await svgToPngBase64(graphicalSvg, 1000, 750);
-                console.warn('[AltSolver] PNG ready, length=' + graphicalPngBase64.length);
-              } catch (e) {
-                const msg = (e as Error).message || String(e);
-                graphicalError = 'Falló la conversión SVG→PNG: ' + msg;
-                console.error('[AltSolver] SVG→PNG conversion failed:', e);
-              }
-            }
-          }
+          // graphicalPngBase64 / graphicalError already computed above.
           if (
             choice.keepSolution ||
             choice.writeAnswer ||

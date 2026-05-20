@@ -1,43 +1,35 @@
 import type { LinearForm, SolveResult } from '../../shared/linear-form';
 
 /**
- * Generates an SVG plot of the feasible region for a 2-variable LP.
+ * Renders the feasible region of a 2-variable LP directly to a Canvas
+ * and returns it as a base64 PNG.
  *
- * Elements:
- *  - Coordinate axes with tick labels and variable names.
- *  - One line per *real* linear constraint (skipping the non-negativity
- *    constraints since those coincide with the axes already drawn).
- *  - Shaded feasible region polygon (light blue).
- *  - Each vertex marked with a small dot and its (x, y) coordinate label
- *    placed away from the polygon interior.
- *  - Three dashed objective level lines: at z = z* (bold black), at the
- *    midpoint and a lower value (faint grey).
- *  - Optimum point as a large blue star with "Óptimo · z = N" label
- *    placed in the corner farthest from the polygon to avoid overlap.
+ * Why not SVG → PNG via <img>?
+ *   The HtmlService sidebar's CSP blocks the data:image/svg+xml URLs we
+ *   would need to feed into <img> elements. Drawing directly to Canvas
+ *   sidesteps that entirely — `canvas.toDataURL('image/png')` is always
+ *   allowed because it doesn't load anything from the network.
  *
- * Returns null if the model is not a 2-var continuous optimum LP.
+ * Canvas is rendered at 1000×750 = 750K pixels — comfortably under the
+ * 1M-pixel cap that Apps Script imposes on insertImage blobs.
+ *
+ * Returns null when the model is not a 2-var continuous LP at an
+ * optimum (the only case where a 2D plot makes sense).
  */
-export function buildGraphicalSvg(lf: LinearForm, sr: SolveResult): string | null {
+export function buildGraphicalPng(lf: LinearForm, sr: SolveResult): string | null {
   if (lf.vars.length !== 2 || sr.isMip || sr.status !== 'optimal') return null;
   if (sr.variables.length !== 2) return null;
 
   const xName = lf.vars[0]!.name;
   const yName = lf.vars[1]!.name;
 
-  // Half-planes for vertex computation (includes non-negativity bounds).
-  interface HalfPlane { a: number; b: number; rhs: number; op: '<=' | '=' | '>='; label: string; isAxis: boolean }
-  const halfPlanes: HalfPlane[] = lf.rows.map((r, idx) => ({
-    a: r.coefs[0] ?? 0,
-    b: r.coefs[1] ?? 0,
-    rhs: r.rhs,
-    op: r.op,
-    label: r.name || `c${idx + 1}`,
-    isAxis: false,
+  // Half-planes (incl. non-negativity for vertex computation only).
+  interface HalfPlane { a: number; b: number; rhs: number; op: '<=' | '=' | '>=' }
+  const halfPlanes: HalfPlane[] = lf.rows.map((r) => ({
+    a: r.coefs[0] ?? 0, b: r.coefs[1] ?? 0, rhs: r.rhs, op: r.op,
   }));
-  const nonNeg0 = lf.vars[0]!.lower === 0;
-  const nonNeg1 = lf.vars[1]!.lower === 0;
-  if (nonNeg0) halfPlanes.push({ a: 1, b: 0, rhs: 0, op: '>=', label: '', isAxis: true });
-  if (nonNeg1) halfPlanes.push({ a: 0, b: 1, rhs: 0, op: '>=', label: '', isAxis: true });
+  if (lf.vars[0]!.lower === 0) halfPlanes.push({ a: 1, b: 0, rhs: 0, op: '>=' });
+  if (lf.vars[1]!.lower === 0) halfPlanes.push({ a: 0, b: 1, rhs: 0, op: '>=' });
 
   const TOL = 1e-7;
   const candidates: { x: number; y: number }[] = [];
@@ -53,69 +45,85 @@ export function buildGraphicalSvg(lf: LinearForm, sr: SolveResult): string | nul
       candidates.push({ x, y });
     }
   }
-  const vertices = candidates.filter((p) =>
-    halfPlanes.every((h) => satisfies(h.a * p.x + h.b * p.y, h.op, h.rhs, 1e-5)),
+  const vertices = dedupe(
+    candidates.filter((p) => halfPlanes.every((h) => satisfies(h.a * p.x + h.b * p.y, h.op, h.rhs, 1e-5))),
+    1e-5,
   );
-  if (vertices.length === 0) return svgErrorPlot('Sin vértices factibles; no se puede graficar.');
-  const uniqVertices = dedupe(vertices, 1e-5);
-  const cx0 = uniqVertices.reduce((s, p) => s + p.x, 0) / uniqVertices.length;
-  const cy0 = uniqVertices.reduce((s, p) => s + p.y, 0) / uniqVertices.length;
-  uniqVertices.sort((p, q) => Math.atan2(p.y - cy0, p.x - cx0) - Math.atan2(q.y - cy0, q.x - cx0));
+  if (vertices.length === 0) return null;
+  const cx0 = vertices.reduce((s, p) => s + p.x, 0) / vertices.length;
+  const cy0 = vertices.reduce((s, p) => s + p.y, 0) / vertices.length;
+  vertices.sort((p, q) => Math.atan2(p.y - cy0, p.x - cx0) - Math.atan2(q.y - cy0, q.x - cx0));
 
   // Axis bounds.
-  const xVals = uniqVertices.map((v) => v.x);
-  const yVals = uniqVertices.map((v) => v.y);
-  let xMin = Math.min(0, ...xVals);
-  let xMax = Math.max(...xVals);
-  let yMin = Math.min(0, ...yVals);
-  let yMax = Math.max(...yVals);
+  let xMin = Math.min(0, ...vertices.map((v) => v.x));
+  let xMax = Math.max(...vertices.map((v) => v.x));
+  let yMin = Math.min(0, ...vertices.map((v) => v.y));
+  let yMax = Math.max(...vertices.map((v) => v.y));
   const xPad = (xMax - xMin) * 0.18 || 1;
   const yPad = (yMax - yMin) * 0.18 || 1;
-  xMin -= xPad * 0.3;
-  xMax += xPad;
-  yMin -= yPad * 0.3;
-  yMax += yPad;
+  xMin -= xPad * 0.3; xMax += xPad;
+  yMin -= yPad * 0.3; yMax += yPad;
 
-  // SVG canvas — sized so the rendered PNG (same dims) stays under
-  // Apps Script's 1 M-pixel limit for insertImage. 1000 × 750 = 750 K px.
+  // Canvas geometry.
   const W = 1000;
   const H = 750;
   const PAD_L = 80;
-  const PAD_R = 200; // room for legend
+  const PAD_R = 200; // legend area
   const PAD_T = 60;
   const PAD_B = 70;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
   const sx = (x: number): number => PAD_L + ((x - xMin) / (xMax - xMin)) * plotW;
   const sy = (y: number): number => PAD_T + plotH - ((y - yMin) / (yMax - yMin)) * plotH;
-
   const COLORS = ['#1a73e8', '#137333', '#9334E8', '#B06000', '#C5221F', '#00838F'];
-  const parts: string[] = [];
 
   // Background
-  parts.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="#ffffff"/>`);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
 
   // Title
-  parts.push(
-    `<text x="${W / 2}" y="34" text-anchor="middle" font-family="Google Sans, Arial, sans-serif" font-size="20" font-weight="500" fill="#202124">AltSolver · Solución gráfica</text>`,
-  );
+  ctx.fillStyle = '#202124';
+  ctx.font = '500 20px "Google Sans", Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('AltSolver · Solución gráfica', W / 2, 34);
 
   // Grid
   const xStep = niceStep(xMax - xMin);
   const yStep = niceStep(yMax - yMin);
+  ctx.strokeStyle = '#f1f3f4';
+  ctx.lineWidth = 1;
   for (let x = Math.ceil(xMin / xStep) * xStep; x <= xMax + 1e-9; x += xStep) {
-    parts.push(`<line x1="${sx(x)}" y1="${PAD_T}" x2="${sx(x)}" y2="${PAD_T + plotH}" stroke="#f1f3f4" stroke-width="1"/>`);
+    ctx.beginPath();
+    ctx.moveTo(sx(x), PAD_T);
+    ctx.lineTo(sx(x), PAD_T + plotH);
+    ctx.stroke();
   }
   for (let y = Math.ceil(yMin / yStep) * yStep; y <= yMax + 1e-9; y += yStep) {
-    parts.push(`<line x1="${PAD_L}" y1="${sy(y)}" x2="${PAD_L + plotW}" y2="${sy(y)}" stroke="#f1f3f4" stroke-width="1"/>`);
+    ctx.beginPath();
+    ctx.moveTo(PAD_L, sy(y));
+    ctx.lineTo(PAD_L + plotW, sy(y));
+    ctx.stroke();
   }
 
-  // Feasible region
-  if (uniqVertices.length >= 3) {
-    const polyPts = uniqVertices.map((v) => `${sx(v.x).toFixed(1)},${sy(v.y).toFixed(1)}`).join(' ');
-    parts.push(
-      `<polygon points="${polyPts}" fill="rgba(26,115,232,0.14)" stroke="rgba(26,115,232,0.45)" stroke-width="1.5"/>`,
-    );
+  // Feasible region polygon
+  if (vertices.length >= 3) {
+    ctx.beginPath();
+    ctx.moveTo(sx(vertices[0]!.x), sy(vertices[0]!.y));
+    for (let i = 1; i < vertices.length; i++) ctx.lineTo(sx(vertices[i]!.x), sy(vertices[i]!.y));
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(26,115,232,0.14)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(26,115,232,0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
   }
 
   // Real constraint lines (skip non-negativity axes — they coincide with the axes)
@@ -126,131 +134,189 @@ export function buildGraphicalSvg(lf: LinearForm, sr: SolveResult): string | nul
     const seg = lineSegmentInBox(a, b, row.rhs, xMin, xMax, yMin, yMax);
     if (!seg) return;
     const color = COLORS[idx % COLORS.length]!;
-    const [p1, p2] = seg;
-    parts.push(
-      `<line x1="${sx(p1.x).toFixed(1)}" y1="${sy(p1.y).toFixed(1)}" x2="${sx(p2.x).toFixed(1)}" y2="${sy(p2.y).toFixed(1)}" stroke="${color}" stroke-width="2.5" stroke-opacity="0.85"/>`,
-    );
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.moveTo(sx(seg[0].x), sy(seg[0].y));
+    ctx.lineTo(sx(seg[1].x), sy(seg[1].y));
+    ctx.stroke();
+    ctx.globalAlpha = 1;
     drawnLines.push({ name: row.name || `c${idx + 1}`, color });
   });
 
-  // Objective level lines
+  // Objective level lines (dashed)
   const c0 = lf.objective.coefs[0] ?? 0;
   const c1 = lf.objective.coefs[1] ?? 0;
   if (Math.abs(c0) + Math.abs(c1) > TOL) {
     const zOpt = sr.objective;
     const levels = [
-      { z: zOpt * 0.4, color: '#bdc1c6', dash: '3,6', width: 1, opacity: 0.6 },
-      { z: zOpt * 0.7, color: '#9aa0a6', dash: '3,6', width: 1, opacity: 0.7 },
-      { z: zOpt, color: '#202124', dash: '6,4', width: 2, opacity: 0.85 },
+      { z: zOpt * 0.4, color: '#bdc1c6', dash: [3, 6], width: 1, alpha: 0.6 },
+      { z: zOpt * 0.7, color: '#9aa0a6', dash: [3, 6], width: 1, alpha: 0.7 },
+      { z: zOpt, color: '#202124', dash: [6, 4], width: 2, alpha: 0.85 },
     ];
-    levels.forEach((lv) => {
+    for (const lv of levels) {
       const seg = lineSegmentInBox(c0, c1, lv.z, xMin, xMax, yMin, yMax);
-      if (!seg) return;
-      const [p1, p2] = seg;
-      parts.push(
-        `<line x1="${sx(p1.x).toFixed(1)}" y1="${sy(p1.y).toFixed(1)}" x2="${sx(p2.x).toFixed(1)}" y2="${sy(p2.y).toFixed(1)}" stroke="${lv.color}" stroke-width="${lv.width}" stroke-dasharray="${lv.dash}" stroke-opacity="${lv.opacity}"/>`,
-      );
-    });
+      if (!seg) continue;
+      ctx.strokeStyle = lv.color;
+      ctx.lineWidth = lv.width;
+      ctx.globalAlpha = lv.alpha;
+      ctx.setLineDash(lv.dash);
+      ctx.beginPath();
+      ctx.moveTo(sx(seg[0].x), sy(seg[0].y));
+      ctx.lineTo(sx(seg[1].x), sy(seg[1].y));
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
   }
 
-  // Vertex dots — label placement: push label outward from polygon centroid
-  const cVx = uniqVertices.reduce((s, p) => s + p.x, 0) / uniqVertices.length;
-  const cVy = uniqVertices.reduce((s, p) => s + p.y, 0) / uniqVertices.length;
-  uniqVertices.forEach((v) => {
-    parts.push(`<circle cx="${sx(v.x).toFixed(1)}" cy="${sy(v.y).toFixed(1)}" r="4" fill="#3c4043"/>`);
+  // Vertex dots + labels
+  const cVx = vertices.reduce((s, p) => s + p.x, 0) / vertices.length;
+  const cVy = vertices.reduce((s, p) => s + p.y, 0) / vertices.length;
+  ctx.font = '12px "Google Sans", Arial, sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  for (const v of vertices) {
+    ctx.fillStyle = '#3c4043';
+    ctx.beginPath();
+    ctx.arc(sx(v.x), sy(v.y), 4, 0, Math.PI * 2);
+    ctx.fill();
     const dx = v.x - cVx;
     const dy = v.y - cVy;
     const norm = Math.hypot(dx, dy) || 1;
     const lx = sx(v.x) + (dx / norm) * 18;
     const ly = sy(v.y) - (dy / norm) * 18;
-    const anchor = dx >= 0 ? 'start' : 'end';
-    parts.push(
-      `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}" font-family="Google Sans, Arial, sans-serif" font-size="12" fill="#5f6368">(${trimNum(v.x)}, ${trimNum(v.y)})</text>`,
-    );
-  });
+    ctx.fillStyle = '#5f6368';
+    ctx.textAlign = dx >= 0 ? 'left' : 'right';
+    ctx.fillText(`(${trimNum(v.x)}, ${trimNum(v.y)})`, lx, ly);
+  }
 
-  // Optimum
+  // Optimum star
   const optX = sr.variables[0]!.primal;
   const optY = sr.variables[1]!.primal;
-  parts.push(starPath(sx(optX), sy(optY), 11, '#1a73e8'));
-  // Label placement: pick a quadrant offset that keeps the text inside the plot
+  drawStar(ctx, sx(optX), sy(optY), 11, '#1a73e8', 'white', 1.8);
+
+  // Optimum label
   const labelOffsetX = optX > (xMin + xMax) / 2 ? -16 : 16;
   const labelOffsetY = optY > (yMin + yMax) / 2 ? 24 : -16;
-  const labelAnchor = labelOffsetX > 0 ? 'start' : 'end';
-  parts.push(
-    `<text x="${(sx(optX) + labelOffsetX).toFixed(1)}" y="${(sy(optY) + labelOffsetY).toFixed(1)}" text-anchor="${labelAnchor}" font-family="Google Sans, Arial, sans-serif" font-size="15" font-weight="500" fill="#1a73e8">Óptimo · z = ${trimNum(sr.objective)}</text>`,
-  );
+  ctx.fillStyle = '#1a73e8';
+  ctx.font = '500 15px "Google Sans", Arial, sans-serif';
+  ctx.textAlign = labelOffsetX > 0 ? 'left' : 'right';
+  ctx.fillText(`Óptimo · z = ${trimNum(sr.objective)}`, sx(optX) + labelOffsetX, sy(optY) + labelOffsetY);
 
-  // Axes (drawn after data so they appear on top of grid)
-  parts.push(`<line x1="${PAD_L}" y1="${sy(0).toFixed(1)}" x2="${PAD_L + plotW}" y2="${sy(0).toFixed(1)}" stroke="#202124" stroke-width="1.5"/>`);
-  parts.push(`<line x1="${sx(0).toFixed(1)}" y1="${PAD_T}" x2="${sx(0).toFixed(1)}" y2="${PAD_T + plotH}" stroke="#202124" stroke-width="1.5"/>`);
+  // Axes
+  ctx.strokeStyle = '#202124';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(PAD_L, sy(0));
+  ctx.lineTo(PAD_L + plotW, sy(0));
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(sx(0), PAD_T);
+  ctx.lineTo(sx(0), PAD_T + plotH);
+  ctx.stroke();
 
   // Tick labels
+  ctx.fillStyle = '#5f6368';
+  ctx.font = '12px "Google Sans", Arial, sans-serif';
+  ctx.textAlign = 'center';
   for (let x = Math.ceil(xMin / xStep) * xStep; x <= xMax + 1e-9; x += xStep) {
-    parts.push(
-      `<text x="${sx(x).toFixed(1)}" y="${(PAD_T + plotH + 22).toFixed(1)}" text-anchor="middle" font-family="Google Sans, Arial, sans-serif" font-size="12" fill="#5f6368">${trimNum(x)}</text>`,
-    );
+    ctx.fillText(trimNum(x), sx(x), PAD_T + plotH + 22);
   }
+  ctx.textAlign = 'right';
   for (let y = Math.ceil(yMin / yStep) * yStep; y <= yMax + 1e-9; y += yStep) {
-    parts.push(
-      `<text x="${(PAD_L - 10).toFixed(1)}" y="${(sy(y) + 4).toFixed(1)}" text-anchor="end" font-family="Google Sans, Arial, sans-serif" font-size="12" fill="#5f6368">${trimNum(y)}</text>`,
-    );
+    ctx.fillText(trimNum(y), PAD_L - 10, sy(y) + 4);
   }
 
   // Axis names
-  parts.push(
-    `<text x="${(PAD_L + plotW / 2).toFixed(1)}" y="${(H - 22).toFixed(1)}" text-anchor="middle" font-family="Google Sans, Arial, sans-serif" font-size="15" font-weight="500" fill="#202124">${escapeSvg(xName)}</text>`,
-  );
-  parts.push(
-    `<text transform="rotate(-90)" x="${-(PAD_T + plotH / 2).toFixed(1)}" y="22" text-anchor="middle" font-family="Google Sans, Arial, sans-serif" font-size="15" font-weight="500" fill="#202124">${escapeSvg(yName)}</text>`,
-  );
+  ctx.fillStyle = '#202124';
+  ctx.font = '500 15px "Google Sans", Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(xName, PAD_L + plotW / 2, H - 22);
+  ctx.save();
+  ctx.translate(22, PAD_T + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(yName, 0, 0);
+  ctx.restore();
 
-  // Legend (right side)
+  // Legend
   const legendX = PAD_L + plotW + 24;
   let legendY = PAD_T + 8;
-  parts.push(
-    `<text x="${legendX}" y="${legendY}" font-family="Google Sans, Arial, sans-serif" font-size="13" font-weight="500" fill="#202124">Referencias</text>`,
-  );
+  ctx.fillStyle = '#202124';
+  ctx.font = '500 13px "Google Sans", Arial, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Referencias', legendX, legendY);
   legendY += 22;
-  // Feasible region
-  parts.push(
-    `<rect x="${legendX}" y="${legendY - 10}" width="18" height="12" fill="rgba(26,115,232,0.14)" stroke="rgba(26,115,232,0.5)"/>`,
-  );
-  parts.push(
-    `<text x="${legendX + 26}" y="${legendY}" font-family="Google Sans, Arial, sans-serif" font-size="12" fill="#3c4043">Región factible</text>`,
-  );
+  // Feasible region swatch
+  ctx.fillStyle = 'rgba(26,115,232,0.14)';
+  ctx.fillRect(legendX, legendY - 10, 18, 12);
+  ctx.strokeStyle = 'rgba(26,115,232,0.5)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(legendX, legendY - 10, 18, 12);
+  ctx.fillStyle = '#3c4043';
+  ctx.font = '12px "Google Sans", Arial, sans-serif';
+  ctx.fillText('Región factible', legendX + 26, legendY);
   legendY += 22;
-  // Constraint lines
-  drawnLines.forEach((dl) => {
-    parts.push(`<line x1="${legendX}" y1="${legendY - 4}" x2="${legendX + 18}" y2="${legendY - 4}" stroke="${dl.color}" stroke-width="2.5"/>`);
-    parts.push(`<text x="${legendX + 26}" y="${legendY}" font-family="Google Sans, Arial, sans-serif" font-size="12" fill="#3c4043">${escapeSvg(dl.name)}</text>`);
+  // Constraints
+  for (const dl of drawnLines) {
+    ctx.strokeStyle = dl.color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(legendX, legendY - 4);
+    ctx.lineTo(legendX + 18, legendY - 4);
+    ctx.stroke();
+    ctx.fillStyle = '#3c4043';
+    ctx.fillText(dl.name, legendX + 26, legendY);
     legendY += 20;
-  });
+  }
   // Optimum
-  parts.push(starPath(legendX + 9, legendY - 4, 7, '#1a73e8'));
-  parts.push(
-    `<text x="${legendX + 26}" y="${legendY}" font-family="Google Sans, Arial, sans-serif" font-size="12" fill="#3c4043">Óptimo</text>`,
-  );
+  drawStar(ctx, legendX + 9, legendY - 4, 7, '#1a73e8', 'white', 1.5);
+  ctx.fillStyle = '#3c4043';
+  ctx.fillText('Óptimo', legendX + 26, legendY);
   legendY += 22;
   // Objective level
-  parts.push(`<line x1="${legendX}" y1="${legendY - 4}" x2="${legendX + 18}" y2="${legendY - 4}" stroke="#202124" stroke-width="2" stroke-dasharray="6,4"/>`);
-  parts.push(
-    `<text x="${legendX + 26}" y="${legendY}" font-family="Google Sans, Arial, sans-serif" font-size="12" fill="#3c4043">z = ${trimNum(sr.objective)}</text>`,
-  );
+  ctx.strokeStyle = '#202124';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(legendX, legendY - 4);
+  ctx.lineTo(legendX + 18, legendY - 4);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#3c4043';
+  ctx.fillText(`z = ${trimNum(sr.objective)}`, legendX + 26, legendY);
 
-  return wrapSvg(W, H, parts.join('\n'));
+  // Export
+  const dataUrl = canvas.toDataURL('image/png');
+  const base64 = dataUrl.split(',')[1] ?? '';
+  return base64;
 }
 
-function wrapSvg(w: number, h: number, body: string): string {
-  // No <?xml?> declaration on purpose — Image elements in some sandboxed
-  // contexts refuse SVGs that start with the XML prolog.
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-${body}
-</svg>`;
-}
-
-function svgErrorPlot(msg: string): string {
-  return wrapSvg(800, 200, `<text x="400" y="100" text-anchor="middle" font-family="Arial" font-size="16" fill="#C5221F">${escapeSvg(msg)}</text>`);
+function drawStar(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  fill: string,
+  stroke: string,
+  strokeWidth: number,
+): void {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle = (Math.PI / 5) * i - Math.PI / 2;
+    const radius = i % 2 === 0 ? r : r * 0.45;
+    const x = cx + radius * Math.cos(angle);
+    const y = cy + radius * Math.sin(angle);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = strokeWidth;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
 }
 
 function satisfies(lhs: number, op: '<=' | '=' | '>=', rhs: number, tol: number): boolean {
@@ -294,16 +360,6 @@ function lineSegmentInBox(
   return [uniq[0]!, uniq[uniq.length - 1]!];
 }
 
-function starPath(cx: number, cy: number, r: number, color: string): string {
-  const points: string[] = [];
-  for (let i = 0; i < 10; i++) {
-    const angle = (Math.PI / 5) * i - Math.PI / 2;
-    const radius = i % 2 === 0 ? r : r * 0.45;
-    points.push(`${(cx + radius * Math.cos(angle)).toFixed(2)},${(cy + radius * Math.sin(angle)).toFixed(2)}`);
-  }
-  return `<polygon points="${points.join(' ')}" fill="${color}" stroke="white" stroke-width="1.8"/>`;
-}
-
 function niceStep(range: number): number {
   if (range <= 0 || !isFinite(range)) return 1;
   const rough = range / 8;
@@ -320,13 +376,4 @@ function niceStep(range: number): number {
 function trimNum(x: number): string {
   if (Math.abs(x) < 1e-9) return '0';
   return Number(x.toPrecision(4)).toString();
-}
-
-function escapeSvg(s: string): string {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
