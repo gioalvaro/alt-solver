@@ -54,6 +54,7 @@ export interface WriteResultsRequest {
   answerMatrix: unknown[][] | null;
   sensitivityMatrix: unknown[][] | null;
   graphicalPngBase64: string | null;
+  graphicalError: string | null;
   snapshot: unknown;
   keepSolution: boolean;
   writeReports: { answer: boolean; sensitivity: boolean; graphical: boolean };

@@ -303,11 +303,21 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
             await restoreSnapshot(modelDoc, ex.snapshot);
           }
           let graphicalPngBase64: string | null = null;
-          if (choice.writeGraphical && graphicalSvg) {
-            try {
-              graphicalPngBase64 = await svgToPngBase64(graphicalSvg, 1000, 750);
-            } catch (e) {
-              console.warn('[AltSolver] SVG→PNG conversion failed:', e);
+          let graphicalError: string | null = null;
+          if (choice.writeGraphical) {
+            if (!graphicalSvg) {
+              graphicalError = 'No se pudo construir la solución gráfica (¿modelo con más de 2 variables o sin región factible?).';
+              console.warn('[AltSolver] buildGraphicalSvg returned null', { lfVars: lf.vars.length, isMip: sr.isMip, status: sr.status });
+            } else {
+              try {
+                console.warn('[AltSolver] Converting SVG to PNG (1000x750)…');
+                graphicalPngBase64 = await svgToPngBase64(graphicalSvg, 1000, 750);
+                console.warn('[AltSolver] PNG ready, length=' + graphicalPngBase64.length);
+              } catch (e) {
+                const msg = (e as Error).message || String(e);
+                graphicalError = 'Falló la conversión SVG→PNG: ' + msg;
+                console.error('[AltSolver] SVG→PNG conversion failed:', e);
+              }
             }
           }
           if (
@@ -326,6 +336,7 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
               answerMatrix: choice.writeAnswer ? answerMatrix : null,
               sensitivityMatrix: choice.writeSensitivity ? sensitivityMatrix : null,
               graphicalPngBase64,
+              graphicalError,
               snapshot: ex.snapshot,
               keepSolution: choice.keepSolution,
               writeReports: {

@@ -67,15 +67,31 @@ function writeResults(req) {
   // Client renders SVG → PNG via Canvas (Apps Script can't convert SVG;
   // Sheets' insertImage rejects blobs > 2 MB or > 1M pixels, so we render
   // at 1000×750 = 750K pixels — under both limits).
-  if (req.writeReports && req.writeReports.graphical && req.graphicalPngBase64) {
+  if (req.writeReports && req.writeReports.graphical) {
     var graphSheet = createReportSheet_('Solución gráfica');
     graphSheet.setTabColor('#137333');
-    try {
-      var bytes = Utilities.base64Decode(req.graphicalPngBase64);
-      var pngBlob = Utilities.newBlob(bytes, 'image/png', 'plot.png');
-      graphSheet.insertImage(pngBlob, 2, 2);
-    } catch (e) {
-      graphSheet.getRange(1, 1).setValue('No se pudo insertar la imagen: ' + e.message);
+    if (req.graphicalPngBase64) {
+      try {
+        var bytes = Utilities.base64Decode(req.graphicalPngBase64);
+        var pngBlob = Utilities.newBlob(bytes, 'image/png', 'plot.png');
+        graphSheet.insertImage(pngBlob, 2, 2);
+      } catch (e) {
+        graphSheet.getRange(1, 1)
+          .setValue('No se pudo insertar la imagen: ' + e.message)
+          .setFontColor('#C5221F').setFontWeight('bold');
+      }
+    } else {
+      // PNG conversion failed client-side — surface why the chart is missing.
+      var msg = req.graphicalError || 'No se generó la solución gráfica (motivo desconocido).';
+      graphSheet.getRange(1, 1)
+        .setValue('⚠ Solución gráfica no disponible')
+        .setFontSize(14).setFontWeight('bold').setFontColor('#C5221F');
+      graphSheet.getRange(2, 1)
+        .setValue(msg)
+        .setFontColor('#5f6368');
+      graphSheet.getRange(4, 1)
+        .setValue('Esto puede pasar si el navegador no pudo convertir el SVG a PNG, o si el modelo no tiene exactamente 2 variables continuas con región factible no vacía.')
+        .setFontColor('#5f6368').setFontSize(11);
     }
     sheetNames.push(graphSheet.getName());
   }
