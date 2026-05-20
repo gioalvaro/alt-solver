@@ -188,6 +188,43 @@
     .actions button { width: 100%; }
     .actions button.primary { padding: 11px; font-size: 14px; }
 
+    .sidebar-header {
+      display: flex; justify-content: flex-end;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e8eaed;
+    }
+    button.ghost {
+      background: transparent;
+      border-color: #e8eaed;
+      color: #1a73e8;
+      font-size: 12px;
+      padding: 5px 10px;
+    }
+    button.ghost:hover { background: #e8f0fe; border-color: #1a73e8; }
+    .templates-list {
+      display: flex; flex-direction: column; gap: 8px;
+      margin-bottom: 12px;
+      max-height: 60vh; overflow-y: auto;
+    }
+    .template-card {
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border: 1.5px solid #dadce0;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s, transform 0.06s;
+    }
+    .template-card:hover {
+      border-color: #1a73e8;
+      background: #f8fbff;
+    }
+    .template-card.loading { opacity: 0.6; cursor: progress; }
+    .template-card[disabled] { opacity: 0.4; cursor: not-allowed; }
+    .template-label { font-size: 13px; font-weight: 500; color: #202124; margin-bottom: 4px; }
+    .template-summary { font-size: 11px; color: #5f6368; }
     .toast {
       position: fixed;
       bottom: 16px; left: 50%;

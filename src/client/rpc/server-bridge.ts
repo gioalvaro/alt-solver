@@ -66,3 +66,12 @@ export function writeResults(req: WriteResultsRequest): Promise<{ ok: boolean; s
 export function restoreSnapshot(modelDoc: unknown, snapshot: unknown): Promise<void> {
   return call<void>('restoreSnapshot', modelDoc, snapshot);
 }
+
+export interface TemplateInfo { id: string; label: string; summary: string }
+export function listTemplates(): Promise<TemplateInfo[]> {
+  return call<TemplateInfo[]>('listTemplates');
+}
+
+export function insertTemplate(id: string): Promise<{ ok: boolean; sheetName: string; modelJson: string }> {
+  return call<{ ok: boolean; sheetName: string; modelJson: string }>('insertTemplate', id);
+}

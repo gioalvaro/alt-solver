@@ -15,6 +15,8 @@ import { buildAnswerMatrix } from '../reports/answer';
 import { buildSensitivityMatrix } from '../reports/sensitivity';
 import { buildGraphicalSvg } from '../reports/graphical';
 import { svgToPngBase64 } from '../reports/svg-to-png';
+import { openTemplatesModal } from './templates-modal';
+import { reloadApp } from '../app';
 import { openResultsModal } from './results-modal';
 import type { LinearForm } from '../../shared/linear-form';
 
@@ -26,6 +28,9 @@ interface Opts {
 export function mountForm(host: HTMLElement, opts: Opts): void {
   const doc = opts.draft.toDocument();
   host.innerHTML = `
+    <div class="sidebar-header">
+      <button type="button" class="ghost" data-action="load-example">📋 Insertar ejemplo</button>
+    </div>
     <form id="solverForm" autocomplete="off">
       <div class="section-label">Función objetivo</div>
 
@@ -196,6 +201,13 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
     } else if (action === 'save') {
       await opts.onSave();
       showToast(t('msg.saved'));
+    } else if (action === 'load-example') {
+      openTemplatesModal(host, {
+        onApplied: async () => {
+          showToast('Ejemplo insertado — cargando modelo…');
+          await reloadApp();
+        },
+      });
     } else if (action === 'solve') {
       await runSolveFlow(host, opts.draft);
     }
