@@ -1,0 +1,16 @@
+title: AltSolver
+description: Solver de Excel para Google Sheets — programación lineal y entera mixta open-source
+theme: jekyll-theme-cayman
+url: https://gioalvaro.github.io
+baseurl: /alt-solver
+
+# Markdown rendering
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+# Build settings
+exclude:
+  - superpowers/
+  - README.md
