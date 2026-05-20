@@ -2,6 +2,7 @@ import { ModelDraft } from './state/model-draft';
 import { setLocale, t } from './i18n/i18n';
 import { getActiveSheetContext, saveModel } from './rpc/server-bridge';
 import { mountForm } from './ui/form';
+import { getHighs } from './solver/highs-loader';
 
 let lastRoot: HTMLElement | null = null;
 
@@ -25,6 +26,13 @@ export async function mountApp(root: HTMLElement): Promise<void> {
     onSave: async () => {
       await saveModel(draft.toJson());
     },
+  });
+
+  // Warm up HiGHS-WASM in the background so the first ▶ Resolver doesn't
+  // pay the ~1s WASM init cost. getHighs() memoizes the module, so when
+  // the user actually clicks Resolver the result is instant.
+  void getHighs().catch((e: unknown) => {
+    console.warn('[AltSolver] HiGHS warmup failed (will retry on solve):', e);
   });
 }
 
