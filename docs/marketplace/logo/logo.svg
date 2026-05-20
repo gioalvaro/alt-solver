@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- AltSolver logo · Variant B: Sigma + optimum star -->
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#1a73e8"/>
+
+  <!-- Big white sigma -->
+  <text x="40" y="92" font-family="system-ui, Georgia, serif" font-size="84" font-weight="700" fill="#ffffff">Σ</text>
+
+  <!-- Star marking the optimum -->
+  <g transform="translate(88, 36)">
+    <polygon
+      points="0,-12 3.5,-3.7 12,-3.7 5.2,2.5 7.4,11.2 0,6.3 -7.4,11.2 -5.2,2.5 -12,-3.7 -3.5,-3.7"
+      fill="#FBBC04"
+      stroke="#ffffff"
+      stroke-width="1.5"
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>

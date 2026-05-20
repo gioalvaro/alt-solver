@@ -1,3 +1,9 @@
+---
+layout: default
+title: Términos de servicio
+permalink: /legal/terms-of-service/
+---
+
 # Términos de Servicio de AltSolver
 
 **Última actualización:** 2026-05-20

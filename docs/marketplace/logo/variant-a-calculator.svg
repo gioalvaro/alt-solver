@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- AltSolver logo · Variant A: minimal calculator -->
+  <!-- Rounded square background -->
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#1a73e8"/>
+
+  <!-- Display panel -->
+  <rect x="24" y="22" width="80" height="22" rx="4" fill="#e8f0fe"/>
+  <text x="98" y="38" text-anchor="end" font-family="system-ui, Roboto, sans-serif" font-size="14" font-weight="600" fill="#1a73e8">z = max</text>
+
+  <!-- Keypad: 3x3 grid of squares -->
+  <g fill="#ffffff">
+    <rect x="24" y="52" width="20" height="20" rx="3"/>
+    <rect x="54" y="52" width="20" height="20" rx="3"/>
+    <rect x="84" y="52" width="20" height="20" rx="3"/>
+    <rect x="24" y="78" width="20" height="20" rx="3"/>
+    <rect x="54" y="78" width="20" height="20" rx="3"/>
+    <rect x="84" y="78" width="20" height="20" rx="3"/>
+    <rect x="24" y="104" width="80" height="14" rx="3"/>
+  </g>
+</svg>

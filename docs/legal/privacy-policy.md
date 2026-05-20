@@ -1,3 +1,9 @@
+---
+layout: default
+title: Política de privacidad
+permalink: /legal/privacy-policy/
+---
+
 # Política de Privacidad de AltSolver
 
 **Última actualización:** 2026-05-20
