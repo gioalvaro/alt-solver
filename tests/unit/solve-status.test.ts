@@ -1,0 +1,46 @@
+import { describe, it, expect } from 'vitest';
+import { mapStatus, mapRowStatus } from '../../src/client/solver/solve-status';
+
+describe('mapStatus', () => {
+  it('Optimal → optimal', () => {
+    expect(mapStatus('Optimal')).toBe('optimal');
+  });
+  it('Infeasible → infeasible', () => {
+    expect(mapStatus('Infeasible')).toBe('infeasible');
+    expect(mapStatus('Primal infeasible')).toBe('infeasible');
+  });
+  it('Unbounded → unbounded', () => {
+    expect(mapStatus('Unbounded')).toBe('unbounded');
+    expect(mapStatus('Primal unbounded')).toBe('unbounded');
+  });
+  it('Time limit reached → time_limit', () => {
+    expect(mapStatus('Time limit reached')).toBe('time_limit');
+  });
+  it('Iteration limit reached → iter_limit', () => {
+    expect(mapStatus('Iteration limit reached')).toBe('iter_limit');
+  });
+  it('unknown status → error', () => {
+    expect(mapStatus('Something weird')).toBe('error');
+    expect(mapStatus('')).toBe('error');
+  });
+});
+
+describe('mapRowStatus', () => {
+  it('recognizes HiGHS short codes', () => {
+    expect(mapRowStatus('BS')).toBe('basic');
+    expect(mapRowStatus('LB')).toBe('lower');
+    expect(mapRowStatus('UB')).toBe('upper');
+    expect(mapRowStatus('EQ')).toBe('upper');
+    expect(mapRowStatus('FX')).toBe('upper');
+  });
+  it('recognizes long-form labels', () => {
+    expect(mapRowStatus('Basic')).toBe('basic');
+    expect(mapRowStatus('Lower')).toBe('lower');
+    expect(mapRowStatus('Upper')).toBe('upper');
+  });
+  it('falls back to free', () => {
+    expect(mapRowStatus(undefined)).toBe('free');
+    expect(mapRowStatus('')).toBe('free');
+    expect(mapRowStatus('Weird')).toBe('free');
+  });
+});

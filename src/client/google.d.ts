@@ -6,7 +6,10 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   interface GoogleScriptRunner { [fnName: string]: any }
   interface GoogleScriptHostEditor { focus(): void }
-  interface GoogleScriptHost { editor: GoogleScriptHostEditor }
+  interface GoogleScriptHost {
+    editor: GoogleScriptHostEditor;
+    close?: () => void;
+  }
   interface GoogleScriptApi {
     run: GoogleScriptRunner & {
       withSuccessHandler(cb: (r: unknown) => void): GoogleScriptApi['run'];

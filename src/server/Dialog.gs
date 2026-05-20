@@ -1,12 +1,10 @@
 /**
- * Opens the main AltSolver dialog as a *modeless* dialog so the user can
- * still interact with the spreadsheet (select ranges) while it is open.
- * This mirrors Excel Solver's behavior.
+ * Opens the main AltSolver panel as a *sidebar* so it stays anchored to
+ * the right of the spreadsheet without covering cells. Sub-modals
+ * (results, constraint editor, options) still appear as overlays.
  */
 function showSolverDialog() {
   const html = HtmlService.createHtmlOutputFromFile('dialog')
-    .setWidth(520)
-    .setHeight(620)
-    .setTitle('AltSolver — Parámetros');
-  SpreadsheetApp.getUi().showModelessDialog(html, 'AltSolver — Parámetros');
+    .setTitle('AltSolver');
+  SpreadsheetApp.getUi().showSidebar(html);
 }
