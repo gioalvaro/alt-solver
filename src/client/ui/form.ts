@@ -9,6 +9,7 @@ import {
   extractLinearForm,
   writeResults,
   restoreSnapshot,
+  computeModelFingerprint,
 } from '../rpc/server-bridge';
 import { runSolve } from '../solver/solve';
 import { buildAnswerMatrix } from '../reports/answer';
@@ -17,7 +18,7 @@ import { buildGraphicalPng } from '../reports/graphical';
 import { openTemplatesModal } from './templates-modal';
 import { reloadApp } from '../app';
 import { openResultsModal } from './results-modal';
-import type { LinearForm } from '../../shared/linear-form';
+import type { LinearForm, SolveResult } from '../../shared/linear-form';
 
 interface Opts {
   draft: ModelDraft;
@@ -213,6 +214,19 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
   });
 }
 
+interface SolveCache {
+  fingerprint: string;
+  lf: LinearForm;
+  sr: SolveResult;
+  snapshot: unknown;
+  graphicalPngBase64: string | null;
+  graphicalError: string | null;
+}
+
+// Module-scoped cache: most recent successful extraction + solve.
+// Cleared automatically when the sidebar re-mounts (e.g., template insertion).
+let lastSolveCache: SolveCache | null = null;
+
 async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void> {
   const modelDoc = draft.toDocument();
 
@@ -237,64 +251,101 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
       throw new Error((v.errors ?? ['Error de validación']).join('\n'));
     }
 
-    setPhase('Extrayendo coeficientes del modelo (esto es lo más lento)…');
-    const ex = await extractLinearForm(modelDoc);
-    if (ex == null) {
-      throw new Error('La extracción no devolvió respuesta. Probablemente el modelo contiene valores infinitos o NaN que la RPC no puede serializar.');
+    // Cache lookup: if the model + sheet state is unchanged since the last
+    // solve, reuse the previous LinearForm/SolveResult and skip the
+    // expensive perturbation extraction + HiGHS solve.
+    setPhase('Verificando si el modelo cambió…');
+    let fingerprint: string | null = null;
+    try {
+      fingerprint = await computeModelFingerprint(modelDoc);
+    } catch (e) {
+      console.warn('[AltSolver] fingerprint failed, will run full extraction:', e);
     }
-    if (!ex.ok || !ex.linearForm) {
-      throw new Error((ex.errors ?? ['Error de extracción']).join('\n'));
-    }
-    const lf = ex.linearForm as LinearForm;
 
-    // Sanity check: if no constraint's coefficients depend on any variable,
-    // the user's LHS formulas don't actually reference the variables.
-    // HiGHS will reject this as "Empty model" / parser error.
-    const objHasCoef = lf.objective.coefs.some((c) => Math.abs(c) > 1e-12);
-    const allRowsZero = lf.rows.length > 0 && lf.rows.every(
-      (r) => r.coefs.every((c) => Math.abs(c) <= 1e-12),
-    );
-    if (!objHasCoef && allRowsZero) {
-      throw new Error(
-        'Ni el objetivo ni las restricciones dependen de las variables. ' +
-        'Las celdas LHS (' + lf.rows.map((r) => r.lhsA1).join(', ') +
-        ') y la celda objetivo (' + lf.objective.cellA1 + ') probablemente contienen ' +
-        'constantes en lugar de fórmulas que multipliquen los coeficientes por las variables. ' +
-        'Por ejemplo: =SUMPRODUCT(coeficientes, variables).',
+    let lf: LinearForm;
+    let sr: SolveResult;
+    let snapshot: unknown;
+    let graphicalPngBase64: string | null = null;
+    let graphicalError: string | null = null;
+    let cacheHit = false;
+
+    if (fingerprint && lastSolveCache && lastSolveCache.fingerprint === fingerprint) {
+      setPhase('Modelo sin cambios — usando resultado anterior…');
+      lf = lastSolveCache.lf;
+      sr = lastSolveCache.sr;
+      snapshot = lastSolveCache.snapshot;
+      graphicalPngBase64 = lastSolveCache.graphicalPngBase64;
+      graphicalError = lastSolveCache.graphicalError;
+      cacheHit = true;
+    } else {
+      setPhase('Extrayendo coeficientes del modelo (esto es lo más lento)…');
+      const ex = await extractLinearForm(modelDoc);
+      if (ex == null) {
+        throw new Error('La extracción no devolvió respuesta. Probablemente el modelo contiene valores infinitos o NaN que la RPC no puede serializar.');
+      }
+      if (!ex.ok || !ex.linearForm) {
+        throw new Error((ex.errors ?? ['Error de extracción']).join('\n'));
+      }
+      lf = ex.linearForm as LinearForm;
+      snapshot = ex.snapshot;
+
+      // Sanity check: if no constraint's coefficients depend on any variable,
+      // the user's LHS formulas don't actually reference the variables.
+      // HiGHS will reject this as "Empty model" / parser error.
+      const objHasCoef = lf.objective.coefs.some((c) => Math.abs(c) > 1e-12);
+      const allRowsZero = lf.rows.length > 0 && lf.rows.every(
+        (r) => r.coefs.every((c) => Math.abs(c) <= 1e-12),
       );
-    }
-    if (allRowsZero) {
-      throw new Error(
-        'Ninguna de las restricciones depende de las variables. Las celdas ' +
-        lf.rows.map((r) => r.lhsA1).join(', ') +
-        ' probablemente contienen constantes en lugar de fórmulas. ' +
-        'Necesitás fórmulas como =SUMPRODUCT(coeficientes, variables) o =B7*B2 + C7*C2.',
-      );
+      if (!objHasCoef && allRowsZero) {
+        throw new Error(
+          'Ni el objetivo ni las restricciones dependen de las variables. ' +
+          'Las celdas LHS (' + lf.rows.map((r) => r.lhsA1).join(', ') +
+          ') y la celda objetivo (' + lf.objective.cellA1 + ') probablemente contienen ' +
+          'constantes en lugar de fórmulas que multipliquen los coeficientes por las variables. ' +
+          'Por ejemplo: =SUMPRODUCT(coeficientes, variables).',
+        );
+      }
+      if (allRowsZero) {
+        throw new Error(
+          'Ninguna de las restricciones depende de las variables. Las celdas ' +
+          lf.rows.map((r) => r.lhsA1).join(', ') +
+          ' probablemente contienen constantes en lugar de fórmulas. ' +
+          'Necesitás fórmulas como =SUMPRODUCT(coeficientes, variables) o =B7*B2 + C7*C2.',
+        );
+      }
+
+      setPhase('Cargando motor (HiGHS) y resolviendo…');
+      sr = await runSolve(lf, {
+        timeLimitSec: modelDoc.options.timeLimitSec,
+        mipRelGap: modelDoc.options.mipGap,
+      });
+
+      setPhase('Listo. Preparando reportes…');
+      try {
+        graphicalPngBase64 = buildGraphicalPng(lf, sr);
+        if (!graphicalPngBase64) {
+          graphicalError = 'No se pudo construir la solución gráfica (sólo soportada para 2 variables continuas con región factible no vacía).';
+        }
+      } catch (e) {
+        graphicalError = 'Error al renderizar el gráfico: ' + (e as Error).message;
+        console.error('[AltSolver] buildGraphicalPng threw:', e);
+      }
+
+      // Cache for next solve.
+      if (fingerprint) {
+        lastSolveCache = { fingerprint, lf, sr, snapshot, graphicalPngBase64, graphicalError };
+      }
     }
 
-    setPhase('Cargando motor (HiGHS) y resolviendo…');
-    const sr = await runSolve(lf, {
-      timeLimitSec: modelDoc.options.timeLimitSec,
-      mipRelGap: modelDoc.options.mipGap,
-    });
-
-    setPhase('Listo. Preparando reportes…');
     const ctx = {
       sheetName: '',
       timestamp: new Date().toLocaleString('es-AR'),
     };
     const answerMatrix = buildAnswerMatrix(lf, sr, ctx);
     const sensitivityMatrix = buildSensitivityMatrix(lf, sr, ctx);
-    let graphicalPngBase64: string | null = null;
-    let graphicalError: string | null = null;
-    try {
-      graphicalPngBase64 = buildGraphicalPng(lf, sr);
-      if (!graphicalPngBase64) {
-        graphicalError = 'No se pudo construir la solución gráfica (sólo soportada para 2 variables continuas con región factible no vacía).';
-      }
-    } catch (e) {
-      graphicalError = 'Error al renderizar el gráfico: ' + (e as Error).message;
-      console.error('[AltSolver] buildGraphicalPng threw:', e);
+
+    if (cacheHit) {
+      console.warn('[AltSolver] Cache hit — skipping extraction and solve.');
     }
 
     overlay.remove();
@@ -309,9 +360,8 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
         host.appendChild(reqOverlay);
         try {
           if (!choice.keepSolution) {
-            await restoreSnapshot(modelDoc, ex.snapshot);
+            await restoreSnapshot(modelDoc, snapshot);
           }
-          // graphicalPngBase64 / graphicalError already computed above.
           if (
             choice.keepSolution ||
             choice.writeAnswer ||
@@ -329,7 +379,7 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
               sensitivityMatrix: choice.writeSensitivity ? sensitivityMatrix : null,
               graphicalPngBase64,
               graphicalError,
-              snapshot: ex.snapshot,
+              snapshot,
               keepSolution: choice.keepSolution,
               writeReports: {
                 answer: choice.writeAnswer,
@@ -348,7 +398,7 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
         }
       },
       onCancel: async () => {
-        await restoreSnapshot(modelDoc, ex.snapshot);
+        await restoreSnapshot(modelDoc, snapshot);
       },
     });
   } catch (e) {

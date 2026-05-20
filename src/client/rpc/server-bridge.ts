@@ -68,6 +68,10 @@ export function restoreSnapshot(modelDoc: unknown, snapshot: unknown): Promise<v
   return call<void>('restoreSnapshot', modelDoc, snapshot);
 }
 
+export function computeModelFingerprint(modelDoc: unknown): Promise<string> {
+  return call<string>('computeModelFingerprint', modelDoc);
+}
+
 export interface TemplateInfo { id: string; label: string; summary: string }
 export function listTemplates(): Promise<TemplateInfo[]> {
   return call<TemplateInfo[]>('listTemplates');
