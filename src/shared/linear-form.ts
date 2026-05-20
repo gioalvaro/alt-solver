@@ -67,6 +67,21 @@ export interface SolveResultRow {
   rangeDown: number | null;
 }
 
+export interface SolveResultIIS {
+  index: number;
+  name: string;
+  lhsA1: string;
+  op: string;
+  rhs: number;
+}
+
+export interface SolveResultGrowingVar {
+  index: number;
+  name: string;
+  cellA1: string;
+  direction: 'up' | 'down';
+}
+
 export interface SolveResult {
   status: SolveStatus;
   objective: number;
@@ -77,4 +92,10 @@ export interface SolveResult {
   isMip: boolean;
   mipGap?: number;     // present when isMip
   message?: string;    // human-readable detail when status != optimal
+  /** Populated when status === 'infeasible'. */
+  infeasibilityIIS?: SolveResultIIS[];
+  infeasibilitySuggestions?: string[];
+  /** Populated when status === 'unbounded'. */
+  unboundedVars?: SolveResultGrowingVar[];
+  unboundedSuggestions?: string[];
 }

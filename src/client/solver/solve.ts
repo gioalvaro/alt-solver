@@ -3,6 +3,7 @@ import { getHighs, type HighsRawResult } from './highs-loader';
 import { toLpFormat } from './model-builder';
 import { mapStatus, mapRowStatus } from './solve-status';
 import { computeRanging } from './ranging';
+import { diagnoseInfeasibility, diagnoseUnboundedness } from './diagnostics';
 
 export interface SolveOptions {
   timeLimitSec: number;
@@ -88,6 +89,30 @@ export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<Solv
     };
   });
 
+  // Run targeted diagnostics for the two error states the user can fix.
+  let infeasibilityIIS: SolveResult['infeasibilityIIS'];
+  let infeasibilitySuggestions: SolveResult['infeasibilitySuggestions'];
+  let unboundedVars: SolveResult['unboundedVars'];
+  let unboundedSuggestions: SolveResult['unboundedSuggestions'];
+  if (status === 'infeasible' && !isMip) {
+    try {
+      const d = diagnoseInfeasibility(highs, lf, { time_limit: opts.timeLimitSec, mip_rel_gap: opts.mipRelGap });
+      infeasibilityIIS = d.iis;
+      infeasibilitySuggestions = d.suggestions;
+    } catch (e) {
+      console.warn('[AltSolver] Infeasibility diagnosis failed:', e);
+    }
+  }
+  if (status === 'unbounded' && !isMip) {
+    try {
+      const d = diagnoseUnboundedness(highs, lf, { time_limit: opts.timeLimitSec, mip_rel_gap: opts.mipRelGap });
+      unboundedVars = d.growingVars;
+      unboundedSuggestions = d.suggestions;
+    } catch (e) {
+      console.warn('[AltSolver] Unboundedness diagnosis failed:', e);
+    }
+  }
+
   return {
     status,
     objective: raw.ObjectiveValue ?? 0,
@@ -97,5 +122,9 @@ export async function runSolve(lf: LinearForm, opts: SolveOptions): Promise<Solv
     time: elapsed,
     isMip,
     message: rawStatusMessage,
+    infeasibilityIIS,
+    infeasibilitySuggestions,
+    unboundedVars,
+    unboundedSuggestions,
   };
 }

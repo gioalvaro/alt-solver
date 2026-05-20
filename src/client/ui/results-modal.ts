@@ -20,6 +20,7 @@ export function openResultsModal(parent: HTMLElement, opts: OpenOpts): void {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay results-overlay';
   const banner = bannerHtml(opts.sr);
+  const diagnostic = diagnosticHtml(opts.sr);
   const objective = objectiveHtml(opts.sr, opts.lf);
   const summary = summaryHtml(opts.sr, opts.lf);
   const choices = choicesHtml(opts.sr);
@@ -27,6 +28,7 @@ export function openResultsModal(parent: HTMLElement, opts: OpenOpts): void {
   overlay.innerHTML = `
     <div class="modal modal-results" role="dialog" aria-label="Resultados del Solver">
       ${banner}
+      ${diagnostic}
       ${objective}
       ${summary}
       ${choices}
@@ -53,6 +55,52 @@ export function openResultsModal(parent: HTMLElement, opts: OpenOpts): void {
       await opts.onAccept({ keepSolution: keep, writeAnswer, writeSensitivity, writeGraphical });
     }
   });
+}
+
+function diagnosticHtml(sr: SolveResult): string {
+  if (sr.status === 'infeasible' && sr.infeasibilityIIS && sr.infeasibilityIIS.length > 0) {
+    const items = sr.infeasibilityIIS
+      .map(
+        (c) =>
+          `<li><strong>${escapeHtml(c.name)}</strong> <span class="muted">(${escapeHtml(c.lhsA1)} ${escapeHtml(c.op)} ${formatNum(c.rhs)})</span></li>`,
+      )
+      .join('');
+    const sugg = (sr.infeasibilitySuggestions ?? [])
+      .map((s) => `<div class="diag-sugg">${escapeHtml(s)}</div>`)
+      .join('');
+    return `
+      <div class="diagnostic diag-err">
+        <div class="diag-title">Restricciones en conflicto</div>
+        <ul class="diag-list">${items}</ul>
+        ${sugg}
+      </div>
+    `;
+  }
+
+  if (sr.status === 'unbounded' && sr.unboundedVars && sr.unboundedVars.length > 0) {
+    const items = sr.unboundedVars
+      .map(
+        (v) =>
+          `<li><strong>${escapeHtml(v.name)}</strong> <span class="muted">(${escapeHtml(v.cellA1)})</span></li>`,
+      )
+      .join('');
+    const sugg = (sr.unboundedSuggestions ?? [])
+      .map((s) => `<div class="diag-sugg">${escapeHtml(s)}</div>`)
+      .join('');
+    return `
+      <div class="diagnostic diag-err">
+        <div class="diag-title">Variables sin cota superior</div>
+        <ul class="diag-list">${items}</ul>
+        ${sugg}
+      </div>
+    `;
+  }
+
+  return '';
+}
+
+function formatNum(x: number): string {
+  return Number(x.toPrecision(6)).toString();
 }
 
 function bannerHtml(sr: SolveResult): string {
