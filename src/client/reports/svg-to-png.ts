@@ -2,14 +2,14 @@
  * Converts an SVG string to a base64-encoded PNG using the browser's
  * Canvas + Image APIs.
  *
- * Apps Script's Utilities.newBlob(svg).getAs('image/png') does NOT
- * actually convert SVG to PNG (the conversion is rejected). Apps Script
- * also rejects blobs larger than 2 MB or 1M pixels for insertImage, so
- * we render at 1000×750 = 750K pixels — comfortably under both limits.
+ * Apps Script sidebars run inside a sandboxed iframe whose CSP often
+ * blocks both `blob:` URLs and `data:image/svg+xml;base64,…` URLs from
+ * being loaded into <img> elements. The most permissive variant is
+ * `data:image/svg+xml;utf8,…` with the SVG payload URI-encoded (not
+ * base64). That is what we use here.
  *
- * Implementation note: HtmlService sidebars use a CSP that blocks
- * loading `blob:` URLs into <img>. We use a `data:image/svg+xml;base64`
- * URL instead, which is allowed.
+ * We render at 1000×750 = 750K pixels because Apps Script's
+ * Sheet.insertImage rejects blobs larger than 1M pixels or 2 MB.
  *
  * Returns the base64 PNG payload (no "data:image/png;base64," prefix).
  */
@@ -24,15 +24,9 @@ export function svgToPngBase64(svg: string, width: number, height: number): Prom
       return;
     }
 
-    // UTF-8 safe base64 encode (btoa requires latin-1 input).
-    let base64Svg: string;
-    try {
-      base64Svg = utf8ToBase64(svg);
-    } catch (e) {
-      reject(new Error('Could not base64-encode SVG: ' + (e as Error).message));
-      return;
-    }
-    const dataUrl = 'data:image/svg+xml;base64,' + base64Svg;
+    // URI-encode the SVG. encodeURIComponent handles Unicode (·, ≥, ∞, …)
+    // correctly and the resulting string is safe to embed in a data URI.
+    const dataUrl = 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 
     const img = new Image();
     img.onload = (): void => {
@@ -48,32 +42,16 @@ export function svgToPngBase64(svg: string, width: number, height: number): Prom
       }
     };
     img.onerror = (ev): void => {
-      // ev is usually a generic Event with no detail. Capture what we can.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const msg = (ev as any)?.message || 'Image element rejected the SVG payload';
-      console.error('[AltSolver] img.onerror', ev, 'SVG length:', svg.length, 'first 200 chars:', svg.slice(0, 200));
-      reject(new Error(msg));
+      console.error(
+        '[AltSolver] img.onerror',
+        ev,
+        'svg length:', svg.length,
+        'data url length:', dataUrl.length,
+        'svg head:', svg.slice(0, 120),
+        'svg tail:', svg.slice(-80),
+      );
+      reject(new Error('Image element rejected the SVG payload'));
     };
     img.src = dataUrl;
   });
-}
-
-/**
- * btoa-safe encoding for strings that may contain code points > 0xFF.
- * The classic encodeURIComponent + unescape trick is deprecated in modern
- * JS, so we go through a TextEncoder when available.
- */
-function utf8ToBase64(s: string): string {
-  if (typeof TextEncoder !== 'undefined') {
-    const bytes = new TextEncoder().encode(s);
-    let binary = '';
-    // Convert byte array to binary string in chunks to avoid call stack issues.
-    const CHUNK = 0x8000;
-    for (let i = 0; i < bytes.length; i += CHUNK) {
-      binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)));
-    }
-    return btoa(binary);
-  }
-  // Fallback for very old engines.
-  return btoa(unescape(encodeURIComponent(s)));
 }

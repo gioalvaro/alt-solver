@@ -242,8 +242,9 @@ export function buildGraphicalSvg(lf: LinearForm, sr: SolveResult): string | nul
 }
 
 function wrapSvg(w: number, h: number, body: string): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  // No <?xml?> declaration on purpose — Image elements in some sandboxed
+  // contexts refuse SVGs that start with the XML prolog.
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
 ${body}
 </svg>`;
 }
