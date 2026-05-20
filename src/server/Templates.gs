@@ -202,6 +202,199 @@ var TEMPLATES_ = {
       });
     },
   },
+
+  transporte: {
+    label: 'Transporte 3×3',
+    summary: 'LP · 9 variables · minimizar costo de transporte entre 3 fuentes y 3 destinos',
+    create: function (sheet) {
+      var sheetName = quoteSheetName_(sheet.getName());
+
+      sheet.getRange('A1').setValue('Problema de transporte 3×3').setFontSize(14).setFontWeight('bold');
+      sheet.getRange('A2').setValue('Enviar unidades desde 3 fuentes a 3 destinos minimizando costo total').setFontColor('#5f6368');
+
+      // Variables: 9 flujos x_ij (planeados como columna)
+      sheet.getRange('A4:C4').setValues([['Desde→Hacia', 'Unidades (x_ij)', 'Costo unit. (c_ij)']])
+        .setFontWeight('bold').setBackground('#F1F3F4');
+      // i=Fuente1..3, j=Destino1..3
+      var rows = [
+        ['Fuente A → Destino 1', 0, 4],
+        ['Fuente A → Destino 2', 0, 8],
+        ['Fuente A → Destino 3', 0, 5],
+        ['Fuente B → Destino 1', 0, 7],
+        ['Fuente B → Destino 2', 0, 4],
+        ['Fuente B → Destino 3', 0, 6],
+        ['Fuente C → Destino 1', 0, 3],
+        ['Fuente C → Destino 2', 0, 5],
+        ['Fuente C → Destino 3', 0, 2],
+      ];
+      sheet.getRange('A5:C13').setValues(rows);
+
+      sheet.getRange('A15').setValue('Función objetivo (MIN)').setFontWeight('bold');
+      sheet.getRange('A16').setValue('Costo total =');
+      sheet.getRange('B16').setFormula('=SUMPRODUCT(C5:C13, B5:B13)');
+
+      sheet.getRange('A18').setValue('Restricciones de oferta').setFontWeight('bold');
+      sheet.getRange('A19:C19').setValues([['Fuente', 'Enviado', 'Disponibilidad']])
+        .setFontWeight('bold').setBackground('#F1F3F4');
+      sheet.getRange('A20').setValue('Fuente A');
+      sheet.getRange('B20').setFormula('=SUM(B5:B7)');
+      sheet.getRange('C20').setValue(20);
+      sheet.getRange('A21').setValue('Fuente B');
+      sheet.getRange('B21').setFormula('=SUM(B8:B10)');
+      sheet.getRange('C21').setValue(30);
+      sheet.getRange('A22').setValue('Fuente C');
+      sheet.getRange('B22').setFormula('=SUM(B11:B13)');
+      sheet.getRange('C22').setValue(25);
+
+      sheet.getRange('A24').setValue('Restricciones de demanda').setFontWeight('bold');
+      sheet.getRange('A25:C25').setValues([['Destino', 'Recibido', 'Demanda']])
+        .setFontWeight('bold').setBackground('#F1F3F4');
+      sheet.getRange('A26').setValue('Destino 1');
+      sheet.getRange('B26').setFormula('=B5+B8+B11');
+      sheet.getRange('C26').setValue(15);
+      sheet.getRange('A27').setValue('Destino 2');
+      sheet.getRange('B27').setFormula('=B6+B9+B12');
+      sheet.getRange('C27').setValue(25);
+      sheet.getRange('A28').setValue('Destino 3');
+      sheet.getRange('B28').setFormula('=B7+B10+B13');
+      sheet.getRange('C28').setValue(35);
+
+      formatExampleSheet_(sheet);
+
+      return baseModel_(sheet, {
+        objective: { cellA1: sheetName + '!B16', sense: 'MIN', targetValue: null },
+        variables: { rangeA1: sheetName + '!B5:B13', names: [], assumeNonNegative: true },
+        constraints: [
+          { lhsA1: sheetName + '!B20', op: '<=', rhsA1OrValue: sheetName + '!C20', type: 'linear' },
+          { lhsA1: sheetName + '!B21', op: '<=', rhsA1OrValue: sheetName + '!C21', type: 'linear' },
+          { lhsA1: sheetName + '!B22', op: '<=', rhsA1OrValue: sheetName + '!C22', type: 'linear' },
+          { lhsA1: sheetName + '!B26', op: '>=', rhsA1OrValue: sheetName + '!C26', type: 'linear' },
+          { lhsA1: sheetName + '!B27', op: '>=', rhsA1OrValue: sheetName + '!C27', type: 'linear' },
+          { lhsA1: sheetName + '!B28', op: '>=', rhsA1OrValue: sheetName + '!C28', type: 'linear' },
+        ],
+      });
+    },
+  },
+
+  asignacion: {
+    label: 'Asignación 3×3',
+    summary: 'MIP · 9 binarias · asignar 3 personas a 3 tareas minimizando costo',
+    create: function (sheet) {
+      var sheetName = quoteSheetName_(sheet.getName());
+
+      sheet.getRange('A1').setValue('Problema de asignación 3×3').setFontSize(14).setFontWeight('bold');
+      sheet.getRange('A2').setValue('Cada persona toma exactamente una tarea; cada tarea es tomada por exactamente una persona').setFontColor('#5f6368');
+
+      sheet.getRange('A4:C4').setValues([['Persona→Tarea', '¿Asignada? (0/1)', 'Costo']])
+        .setFontWeight('bold').setBackground('#F1F3F4');
+      var rows = [
+        ['Ana → Tarea 1',   0, 8],
+        ['Ana → Tarea 2',   0, 6],
+        ['Ana → Tarea 3',   0, 4],
+        ['Beto → Tarea 1',  0, 5],
+        ['Beto → Tarea 2',  0, 7],
+        ['Beto → Tarea 3',  0, 9],
+        ['Carla → Tarea 1', 0, 9],
+        ['Carla → Tarea 2', 0, 8],
+        ['Carla → Tarea 3', 0, 5],
+      ];
+      sheet.getRange('A5:C13').setValues(rows);
+
+      sheet.getRange('A15').setValue('Función objetivo (MIN)').setFontWeight('bold');
+      sheet.getRange('A16').setValue('Costo total =');
+      sheet.getRange('B16').setFormula('=SUMPRODUCT(C5:C13, B5:B13)');
+
+      sheet.getRange('A18').setValue('Cada persona toma 1 tarea').setFontWeight('bold');
+      sheet.getRange('A19:C19').setValues([['Persona', 'Suma asignaciones', 'Debe ser']])
+        .setFontWeight('bold').setBackground('#F1F3F4');
+      sheet.getRange('A20').setValue('Ana');
+      sheet.getRange('B20').setFormula('=SUM(B5:B7)');
+      sheet.getRange('C20').setValue(1);
+      sheet.getRange('A21').setValue('Beto');
+      sheet.getRange('B21').setFormula('=SUM(B8:B10)');
+      sheet.getRange('C21').setValue(1);
+      sheet.getRange('A22').setValue('Carla');
+      sheet.getRange('B22').setFormula('=SUM(B11:B13)');
+      sheet.getRange('C22').setValue(1);
+
+      sheet.getRange('A24').setValue('Cada tarea asignada a 1 persona').setFontWeight('bold');
+      sheet.getRange('A25:C25').setValues([['Tarea', 'Suma asignaciones', 'Debe ser']])
+        .setFontWeight('bold').setBackground('#F1F3F4');
+      sheet.getRange('A26').setValue('Tarea 1');
+      sheet.getRange('B26').setFormula('=B5+B8+B11');
+      sheet.getRange('C26').setValue(1);
+      sheet.getRange('A27').setValue('Tarea 2');
+      sheet.getRange('B27').setFormula('=B6+B9+B12');
+      sheet.getRange('C27').setValue(1);
+      sheet.getRange('A28').setValue('Tarea 3');
+      sheet.getRange('B28').setFormula('=B7+B10+B13');
+      sheet.getRange('C28').setValue(1);
+
+      formatExampleSheet_(sheet);
+
+      return baseModel_(sheet, {
+        objective: { cellA1: sheetName + '!B16', sense: 'MIN', targetValue: null },
+        variables: { rangeA1: sheetName + '!B5:B13', names: [], assumeNonNegative: true },
+        constraints: [
+          { lhsA1: sheetName + '!B20', op: '=', rhsA1OrValue: sheetName + '!C20', type: 'linear' },
+          { lhsA1: sheetName + '!B21', op: '=', rhsA1OrValue: sheetName + '!C21', type: 'linear' },
+          { lhsA1: sheetName + '!B22', op: '=', rhsA1OrValue: sheetName + '!C22', type: 'linear' },
+          { lhsA1: sheetName + '!B26', op: '=', rhsA1OrValue: sheetName + '!C26', type: 'linear' },
+          { lhsA1: sheetName + '!B27', op: '=', rhsA1OrValue: sheetName + '!C27', type: 'linear' },
+          { lhsA1: sheetName + '!B28', op: '=', rhsA1OrValue: sheetName + '!C28', type: 'linear' },
+          { lhsA1: sheetName + '!B5:B13', op: 'bin' },
+        ],
+      });
+    },
+  },
+
+  proyectos: {
+    label: 'Selección de proyectos',
+    summary: 'MIP · 5 binarias · elegir proyectos sin exceder presupuesto ni personal',
+    create: function (sheet) {
+      var sheetName = quoteSheetName_(sheet.getName());
+
+      sheet.getRange('A1').setValue('Selección de proyectos (capital budgeting)').setFontSize(14).setFontWeight('bold');
+      sheet.getRange('A2').setValue('Elegir un subconjunto de 5 proyectos que maximice el valor presente neto sin pasarse de presupuesto ni de personal').setFontColor('#5f6368');
+
+      sheet.getRange('A4:E4').setValues([['Proyecto', '¿Elegido? (0/1)', 'VAN ($k)', 'Inversión ($k)', 'Personal']])
+        .setFontWeight('bold').setBackground('#F1F3F4');
+      var rows = [
+        ['Sistema CRM',          0, 25, 8, 3],
+        ['Renovación planta',    0, 18, 4, 1],
+        ['Línea producto nuevo', 0, 30, 10, 4],
+        ['Capacitación staff',   0, 15, 3, 1],
+        ['Expansión depósito',   0, 22, 6, 2],
+      ];
+      sheet.getRange('A5:E9').setValues(rows);
+
+      sheet.getRange('A11').setValue('Función objetivo (MAX VAN total)').setFontWeight('bold');
+      sheet.getRange('A12').setValue('VAN total =');
+      sheet.getRange('B12').setFormula('=SUMPRODUCT(C5:C9, B5:B9)');
+
+      sheet.getRange('A14').setValue('Restricciones').setFontWeight('bold');
+      sheet.getRange('A15:C15').setValues([['Recurso', 'Usado', 'Disponible']])
+        .setFontWeight('bold').setBackground('#F1F3F4');
+      sheet.getRange('A16').setValue('Presupuesto ($k)');
+      sheet.getRange('B16').setFormula('=SUMPRODUCT(D5:D9, B5:B9)');
+      sheet.getRange('C16').setValue(20);
+      sheet.getRange('A17').setValue('Personal');
+      sheet.getRange('B17').setFormula('=SUMPRODUCT(E5:E9, B5:B9)');
+      sheet.getRange('C17').setValue(8);
+
+      formatExampleSheet_(sheet);
+
+      return baseModel_(sheet, {
+        objective: { cellA1: sheetName + '!B12', sense: 'MAX', targetValue: null },
+        variables: { rangeA1: sheetName + '!B5:B9', names: [], assumeNonNegative: true },
+        constraints: [
+          { lhsA1: sheetName + '!B16', op: '<=', rhsA1OrValue: sheetName + '!C16', type: 'linear' },
+          { lhsA1: sheetName + '!B17', op: '<=', rhsA1OrValue: sheetName + '!C17', type: 'linear' },
+          { lhsA1: sheetName + '!B5:B9', op: 'bin' },
+        ],
+      });
+    },
+  },
 };
 
 function quoteSheetName_(name) {
