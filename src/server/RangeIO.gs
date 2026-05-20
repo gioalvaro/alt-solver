@@ -220,7 +220,9 @@ function extractLinearForm(modelDoc) {
     return ss.getRange(raw).getValue();
   }
 
-  // 7. Infer variable names: cell to the left (column layout) or above (row layout).
+  // 7. Infer variable names: prefer a non-numeric sibling label.
+  // Numeric siblings are almost always coefficient values, not names, so we
+  // reject them in favor of the x_i fallback.
   var varNames = [];
   for (var i3 = 0; i3 < n; i3++) {
     var ri = isColumn ? i3 : 0;
@@ -229,7 +231,10 @@ function extractLinearForm(modelDoc) {
     var inferred = null;
     try {
       var sibling = isColumn ? thisCell.offset(0, -1).getValue() : thisCell.offset(-1, 0).getValue();
-      if (sibling !== '' && sibling != null) inferred = String(sibling);
+      if (sibling !== '' && sibling != null && typeof sibling !== 'number') {
+        inferred = String(sibling).trim();
+        if (inferred === '') inferred = null;
+      }
     } catch (er) { /* edge of sheet */ }
     varNames.push(inferred || ('x' + (i3 + 1)));
   }
@@ -260,10 +265,15 @@ function extractLinearForm(modelDoc) {
   }
 
   function inferConstraintName(lhsA1) {
+    // Prefer a non-numeric sibling label; reject numeric values which are
+    // almost always coefficients on the same row, not constraint names.
     try {
       var lhs = ss.getRange(lhsA1);
       var leftVal = lhs.offset(0, -1).getValue();
-      if (leftVal !== '' && leftVal != null) return String(leftVal);
+      if (leftVal !== '' && leftVal != null && typeof leftVal !== 'number') {
+        var s = String(leftVal).trim();
+        if (s !== '') return s;
+      }
     } catch (er) { /* edge */ }
     return lhsA1;
   }
