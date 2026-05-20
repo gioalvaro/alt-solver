@@ -8,6 +8,7 @@ interface Opts {
   onAdd: (c: Constraint) => void;
   onUpdate: (i: number, c: Constraint) => void;
   onRemove: (i: number) => void;
+  onSelect?: (index: number | null, c: Constraint | null) => void;
 }
 
 export function mountConstraintsList(host: HTMLElement, opts: Opts): { render: () => void } {
@@ -42,6 +43,8 @@ export function mountConstraintsList(host: HTMLElement, opts: Opts): { render: (
       row.addEventListener('click', () => {
         selectedIndex = Number(row.dataset.index);
         render();
+        const c = opts.getList()[selectedIndex] ?? null;
+        opts.onSelect?.(selectedIndex, c);
       });
     });
   }
@@ -70,6 +73,7 @@ export function mountConstraintsList(host: HTMLElement, opts: Opts): { render: (
       if (selectedIndex === null) return;
       opts.onRemove(selectedIndex);
       selectedIndex = null;
+      opts.onSelect?.(null, null);
       render();
     }
   });

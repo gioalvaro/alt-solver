@@ -88,3 +88,11 @@ export function listTemplates(): Promise<TemplateInfo[]> {
 export function insertTemplate(id: string): Promise<{ ok: boolean; sheetName: string; modelJson: string }> {
   return call<{ ok: boolean; sheetName: string; modelJson: string }>('insertTemplate', id);
 }
+
+export interface HighlightItem { rangeA1: string; color: string | null }
+export function applyHighlights(prevSnapshot: unknown, items: HighlightItem[]): Promise<unknown> {
+  return call<unknown>('applyHighlights', prevSnapshot, items);
+}
+export function clearHighlights(snapshot: unknown): Promise<void> {
+  return call<void>('clearHighlights', snapshot);
+}

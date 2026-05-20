@@ -17,6 +17,7 @@ import { buildGraphicalPng } from '../reports/graphical';
 import { openTemplatesModal } from './templates-modal';
 import { reloadApp } from '../app';
 import { openResultsModal } from './results-modal';
+import { HighlightCoordinator } from './highlight';
 import type { LinearForm, SolveResult } from '../../shared/linear-form';
 
 interface Opts {
@@ -112,6 +113,22 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
   const objPicker = makeRangePicker(objCell, objPickBtn);
   const varsPicker = makeRangePicker(varsRange, varsPickBtn);
 
+  const highlighter = new HighlightCoordinator();
+  window.addEventListener('beforeunload', () => highlighter.clearNow());
+
+  function refreshHighlight(role: 'objective' | 'variables', input: HTMLInputElement): void {
+    const v = input.value;
+    if (v && isValidA1(v)) highlighter.highlight(role, [v]);
+    else highlighter.clear();
+  }
+  objCell.addEventListener('focus', () => refreshHighlight('objective', objCell));
+  objCell.addEventListener('input', () => refreshHighlight('objective', objCell));
+  varsRange.addEventListener('focus', () => refreshHighlight('variables', varsRange));
+  varsRange.addEventListener('input', () => refreshHighlight('variables', varsRange));
+  objCell.addEventListener('blur', () => highlighter.clear());
+  varsRange.addEventListener('blur', () => highlighter.clear());
+  window.addEventListener('pagehide', () => highlighter.clearNow());
+
   function updateVarsSummary(): void {
     const r = varsRange.value;
     if (r === '' || !isValidA1(r)) { varsSummary.textContent = ''; return; }
@@ -150,6 +167,12 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
     onAdd: (c) => opts.draft.addConstraint(c),
     onUpdate: (i, c) => opts.draft.updateConstraint(i, c),
     onRemove: (i) => opts.draft.removeConstraint(i),
+    onSelect: (_i, c) => {
+      if (!c) { highlighter.clear(); return; }
+      const ranges: string[] = [c.lhsA1];
+      if ('rhsA1OrValue' in c) ranges.push(c.rhsA1OrValue);
+      highlighter.highlight('constraint', ranges);
+    },
   });
 
   function syncObjective(): void {
@@ -208,6 +231,7 @@ export function mountForm(host: HTMLElement, opts: Opts): void {
         },
       });
     } else if (action === 'solve') {
+      highlighter.clearNow();
       await runSolveFlow(host, opts.draft);
     }
   });
