@@ -10,6 +10,7 @@ import { buildAnswerMatrix } from '../reports/answer';
 import { buildSensitivityMatrix } from '../reports/sensitivity';
 import { buildGraphicalPng } from '../reports/graphical';
 import { openResultsModal } from './results-modal';
+import { emptyLpDiagnostic } from './solve-flow-checks';
 import type { LinearForm, SolveResult } from '../../shared/linear-form';
 
 interface SolveCache {
@@ -82,27 +83,8 @@ export async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promis
       // Sanity check: if no constraint's coefficients depend on any variable,
       // the user's LHS formulas don't actually reference the variables.
       // HiGHS will reject this as "Empty model" / parser error.
-      const objHasCoef = lf.objective.coefs.some((c) => Math.abs(c) > 1e-12);
-      const allRowsZero = lf.rows.length > 0 && lf.rows.every(
-        (r) => r.coefs.every((c) => Math.abs(c) <= 1e-12),
-      );
-      if (!objHasCoef && allRowsZero) {
-        throw new Error(
-          'Ni el objetivo ni las restricciones dependen de las variables. ' +
-          'Las celdas LHS (' + lf.rows.map((r) => r.lhsA1).join(', ') +
-          ') y la celda objetivo (' + lf.objective.cellA1 + ') probablemente contienen ' +
-          'constantes en lugar de fórmulas que multipliquen los coeficientes por las variables. ' +
-          'Por ejemplo: =SUMPRODUCT(coeficientes, variables).',
-        );
-      }
-      if (allRowsZero) {
-        throw new Error(
-          'Ninguna de las restricciones depende de las variables. Las celdas ' +
-          lf.rows.map((r) => r.lhsA1).join(', ') +
-          ' probablemente contienen constantes en lugar de fórmulas. ' +
-          'Necesitás fórmulas como =SUMPRODUCT(coeficientes, variables) o =B7*B2 + C7*C2.',
-        );
-      }
+      const emptyMsg = emptyLpDiagnostic(lf);
+      if (emptyMsg) throw new Error(emptyMsg);
 
       setPhase('Cargando motor (HiGHS) y resolviendo…');
       sr = await runSolve(lf, {
