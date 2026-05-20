@@ -72,6 +72,14 @@ export function computeModelFingerprint(modelDoc: unknown): Promise<string> {
   return call<string>('computeModelFingerprint', modelDoc);
 }
 
+export interface PreflightResponse {
+  validation: { ok: boolean; errors?: string[] };
+  fingerprint: string | null;
+}
+export function preflight(modelDoc: unknown): Promise<PreflightResponse> {
+  return call<PreflightResponse>('preflight', modelDoc);
+}
+
 export interface TemplateInfo { id: string; label: string; summary: string }
 export function listTemplates(): Promise<TemplateInfo[]> {
   return call<TemplateInfo[]>('listTemplates');

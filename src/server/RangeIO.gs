@@ -412,6 +412,19 @@ function computeModelFingerprint(modelDoc) {
 }
 
 /**
+ * Combines validateModel + computeModelFingerprint into a single RPC to
+ * save one client↔server round-trip per Resolver click.
+ */
+function preflight(modelDoc) {
+  var v = validateModel(modelDoc);
+  var fp = null;
+  try {
+    fp = computeModelFingerprint(modelDoc);
+  } catch (e) { /* fingerprint failure is non-fatal */ }
+  return { validation: v, fingerprint: fp };
+}
+
+/**
  * FNV-1a-ish 32-bit hash, returned as hex. Cheap and collision-resistant
  * enough for our cache-key use case.
  */

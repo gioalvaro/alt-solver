@@ -5,11 +5,10 @@ import { mountConstraintsList } from './constraints-list';
 import { openOptionsModal } from './options-modal';
 import { makeRangePicker } from './range-picker';
 import {
-  validateModel,
   extractLinearForm,
   writeResults,
   restoreSnapshot,
-  computeModelFingerprint,
+  preflight,
 } from '../rpc/server-bridge';
 import { runSolve } from '../solver/solve';
 import { buildAnswerMatrix } from '../reports/answer';
@@ -243,24 +242,16 @@ async function runSolveFlow(host: HTMLElement, draft: ModelDraft): Promise<void>
 
   try {
     setPhase('Validando modelo…');
-    const v = await validateModel(modelDoc);
-    if (v == null) {
-      throw new Error('La validación no devolvió respuesta. ¿Refrescaste la hoja después del último push?');
+    // Single RPC: validate + compute fingerprint at once. Saves one
+    // ~500ms round-trip vs. doing them in sequence.
+    const pre = await preflight(modelDoc);
+    if (pre == null) {
+      throw new Error('El servidor no devolvió respuesta. ¿Refrescaste la hoja después del último push?');
     }
-    if (!v.ok) {
-      throw new Error((v.errors ?? ['Error de validación']).join('\n'));
+    if (!pre.validation.ok) {
+      throw new Error((pre.validation.errors ?? ['Error de validación']).join('\n'));
     }
-
-    // Cache lookup: if the model + sheet state is unchanged since the last
-    // solve, reuse the previous LinearForm/SolveResult and skip the
-    // expensive perturbation extraction + HiGHS solve.
-    setPhase('Verificando si el modelo cambió…');
-    let fingerprint: string | null = null;
-    try {
-      fingerprint = await computeModelFingerprint(modelDoc);
-    } catch (e) {
-      console.warn('[AltSolver] fingerprint failed, will run full extraction:', e);
-    }
+    const fingerprint = pre.fingerprint;
 
     let lf: LinearForm;
     let sr: SolveResult;
