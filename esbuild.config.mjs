@@ -20,6 +20,25 @@ const stubPlugin = {
   },
 };
 
+// `highs/runtime` resolves to highs.wasm inside the package. We don't want
+// the binary embedded in the bundle anymore (Apps Script truncates inline
+// content over ~150KB) — replace any import of the WASM with an empty
+// Uint8Array placeholder. The actual WASM is fetched at runtime from
+// GitHub Pages in src/client/solver/highs-loader.ts.
+const stubWasmPlugin = {
+  name: 'stub-wasm-runtime',
+  setup(build) {
+    build.onResolve({ filter: /^highs\/runtime$/ }, (args) => ({
+      path: args.path,
+      namespace: 'stub-wasm',
+    }));
+    build.onLoad({ filter: /.*/, namespace: 'stub-wasm' }, () => ({
+      contents: 'export default new Uint8Array(0);',
+      loader: 'js',
+    }));
+  },
+};
+
 await build({
   entryPoints: ['src/client/index.ts'],
   bundle: true,
@@ -31,8 +50,5 @@ await build({
   outfile: 'dist/client-bundle.js',
   legalComments: 'none',
   logLevel: 'info',
-  loader: {
-    '.wasm': 'binary',
-  },
-  plugins: [stubPlugin],
+  plugins: [stubPlugin, stubWasmPlugin],
 });
