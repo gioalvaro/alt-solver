@@ -15,7 +15,8 @@ exclude:
   - superpowers/
   - README.md
 
-# Ensure binary assets ship as-is.
+# Ensure binary and large JS assets ship as-is.
 keep_files:
   - highs.wasm
+  - client-bundle.js
   - marketplace

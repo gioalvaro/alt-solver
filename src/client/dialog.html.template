@@ -321,9 +321,26 @@
   </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <div class="loading">Cargando AltSolver…</div>
+  </div>
   <script>
-    /* __CLIENT_BUNDLE__ */
+    // Apps Script's HtmlService runs a textual processor over inline JS
+    // that mangles certain patterns (// inside strings, etc.) and that
+    // truncates content above ~150KB. Loading the bundle from GitHub Pages
+    // bypasses that processing entirely. The URL hash is replaced at
+    // build time with the bundle's content hash for cache busting.
+    (function () {
+      var script = document.createElement('script');
+      script.src = 'https://gioalvaro.github.io/alt-solver/client-bundle.js?v=__BUNDLE_HASH__';
+      script.onerror = function (e) {
+        document.getElementById('app').innerHTML =
+          '<div class="error">No se pudo cargar el motor de AltSolver desde GitHub Pages. ' +
+          'Verificá tu conexión a internet y refrescá la hoja.</div>';
+        console.error('[AltSolver] bundle load failed:', e);
+      };
+      document.head.appendChild(script);
+    })();
   </script>
 </body>
 </html>
