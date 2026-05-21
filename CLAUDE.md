@@ -22,6 +22,16 @@ Las reglas acá tienen precedencia sobre cualquier comportamiento por defecto de
 - Las funciones top-level en `src/server/*.gs` son entrypoints RPC llamados desde el cliente vía `google.script.run`. **Renombrarlas rompe el cliente**. Antes de renombrar cualquier función exportada en un `.gs`, buscá usos en `src/client/rpc/server-bridge.ts`.
 - `Infinity` no sobrevive a la serialización JSON de `google.script.run` — usá `1e30` como centinela y tratá `|x| ≥ 1e30` como infinito en el cliente.
 
+### HtmlService — NO meter el bundle inline
+
+- Apps Script corre un post-procesador textual sobre cualquier `<script>...</script>` inline servido por HtmlService. Ese procesador:
+  - Strippea `//` como si fuera un comentario incluso adentro de strings (`"https://..."` se rompe).
+  - Trunca contenido arriba de ~150KB.
+  - Interactúa mal con Trusted Types en sandboxes nuevos.
+- Por eso el bundle del cliente se hostea en **GitHub Pages** (`docs/client-bundle.js`) y `dialog.html` sólo trae un loader chico que hace `document.createElement('script')` y agrega `src="https://gioalvaro.github.io/alt-solver/client-bundle.js?v=HASH"`.
+- El WASM de HiGHS también se baja por fetch desde GitHub Pages — no embebido en el bundle por las mismas razones de tamaño.
+- Si tenés que agregar algo al inline script de `dialog.html.template`, mantenelo chico, sin `//` en strings, y nada de patrones que se confundan con `</script>`.
+
 ### Build / verificación antes de hacer commit
 
 Siempre correr en orden y todos deben pasar:
