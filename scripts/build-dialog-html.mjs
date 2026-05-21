@@ -5,10 +5,19 @@ mkdirSync('dist', { recursive: true });
 
 // Bundle HTML
 const template = readFileSync('src/client/dialog.html.template', 'utf-8');
-const bundle = readFileSync('dist/client-bundle.js', 'utf-8');
-// Use a function as the replacer so String.prototype.replace does NOT
-// interpret $& $` $' $n patterns inside the bundle (the bundle contains
-// JS template literals and regexes with backticks/dollar signs).
+let bundle = readFileSync('dist/client-bundle.js', 'utf-8');
+
+// Apps Script's HtmlService runs a minifier on inline scripts that strips
+// // ... to end-of-line WITHOUT understanding string context — so any `//`
+// inside a string literal (e.g. "https://...", "file://", "http://...")
+// gets eaten and the resulting unclosed string blows up the parser.
+// Workaround: rewrite every JS string literal so that `//` is encoded as
+// `//`. The runtime value of the string is identical, but
+// Apps Script's textual scanner doesn't see two consecutive `/` characters
+// anymore.
+const STRING_LITERAL_RE = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
+bundle = bundle.replace(STRING_LITERAL_RE, (lit) => lit.replaceAll('//', '\\u002F\\u002F'));
+
 const html = template.replace('/* __CLIENT_BUNDLE__ */', () => bundle);
 writeFileSync('dist/dialog.html', html);
 console.log(`Built dist/dialog.html (${html.length} bytes)`);
