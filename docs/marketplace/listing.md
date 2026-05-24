@@ -7,8 +7,8 @@ Material para completar el formulario del Marketplace SDK en Google Cloud Consol
 | Campo | Valor |
 |---|---|
 | **App name** | AltSolver |
-| **Tagline** (≤ 30 chars) | Solver de Excel en Google Sheets |
-| **Short description** (≤ 90 chars) | Resuelve programación lineal y entera mixta con paridad de reportes Excel. |
+| **Tagline** (≤ 30 chars) | Solver para Google Sheets™ |
+| **Short description** (≤ 90 chars) | Programación lineal y entera mixta para Google Sheets™, con paridad de reportes. |
 | **Category** | Productivity → Business Tools (alternativa: Education) |
 | **Pricing model** | Free |
 | **Languages supported** | Español (v0.1), Inglés (v0.4) |
@@ -17,7 +17,7 @@ Material para completar el formulario del Marketplace SDK en Google Cloud Consol
 ## Detailed description (markdown, 4000 chars máx)
 
 ```
-AltSolver es un complemento open-source que replica el Solver de Microsoft Excel directamente en Google Sheets.
+AltSolver es un complemento open-source que replica las capacidades del Solver de Microsoft Excel® directamente en Google Sheets™.
 
 ¿QUÉ RESUELVE?
 
@@ -28,32 +28,36 @@ AltSolver es un complemento open-source que replica el Solver de Microsoft Excel
 ¿QUÉ REPORTES PRODUCE?
 
   • Informe de Respuesta: valores iniciales y finales, status vinculante/no vinculante, holguras.
-  • Informe de Sensibilidad (LP): costos reducidos, precios sombra, y RANGOS ADMISIBLES REALES de aumento y decremento, calculados por bisección sobre la base óptima.
-  • Solución gráfica (problemas de 2 variables): región factible sombreada, vértices etiquetados con coordenadas, curvas de nivel del objetivo, y óptimo destacado.
+  • Informe de Sensibilidad (LP): costos reducidos, precios sombra y rangos admisibles reales calculados por bisección sobre la base óptima.
+  • Solución gráfica (problemas de 2 variables): región factible sombreada, vértices etiquetados con coordenadas, curvas de nivel del objetivo y óptimo destacado.
 
 CÓMO SE USA
 
-  1. Abrí AltSolver desde el menú Extensiones.
-  2. Cargá uno de los 4 ejemplos pre-armados (Producción Taha 3.1, Dieta, Mezcla, Mochila 0-1) con un clic, o armá tu propio modelo con SUMPRODUCT.
-  3. Definí la celda objetivo, el rango de variables, y agregá restricciones.
+  1. Abrí AltSolver desde el menú Extensiones de Google Sheets™.
+  2. Cargá uno de los 7 ejemplos pre-armados (Producción, Dieta, Mezcla, Mochila, Transporte, Asignación, Selección de proyectos) con un clic, o armá tu propio modelo con SUMPRODUCT.
+  3. Definí la celda objetivo, el rango de variables y agregá restricciones.
   4. Clic en ▶ Resolver. En segundos vas a tener los reportes y la solución en celdas.
 
 POR QUÉ ALTSOLVER
 
-  • Sin backend externo: todo corre dentro del navegador. Tus datos nunca salen de Google.
+  • Sin backend propio: todo corre dentro del navegador.
   • Sin telemetría ni tracking.
-  • Motor de optimización HiGHS (Universidad de Edimburgo), el mejor solver LP/MIP open-source actual, compilado a WebAssembly.
-  • Diseñado para uso educativo: paridad pedagógica con Excel Solver, ideal para cursos de Investigación Operativa.
+  • Diagnóstico inteligente: si el modelo es infactible identifica las restricciones en conflicto; si no es acotado identifica las variables que crecen sin límite.
+  • Motor de optimización HiGHS (Universidad de Edimburgo) compilado a WebAssembly.
+  • Diseñado para uso educativo: paridad pedagógica con el Solver de Excel®, ideal para cursos de Investigación Operativa.
 
 ¿PARA QUIÉN ESTÁ HECHO?
 
-  • Estudiantes y docentes de Investigación Operativa que usan Google Sheets en lugar de Excel.
+  • Estudiantes y docentes de Investigación Operativa que usan Google Sheets™ en lugar de Excel.
   • Profesionales que necesitan resolver LPs/MIPs sin instalar software extra.
-  • Cualquiera que extrañe el Solver de Excel en el ecosistema de Google.
+  • Cualquiera que extrañe el Solver de Excel® en el ecosistema de Google Workspace™.
 
 CÓDIGO ABIERTO
 
 AltSolver es 100% open-source bajo licencia MIT. Repositorio: https://github.com/gioalvaro/alt-solver
+
+────────
+Google Sheets™ y Google Workspace™ son marcas comerciales de Google LLC. Microsoft Excel® es una marca registrada de Microsoft Corporation. AltSolver es un proyecto independiente y no está respaldado, patrocinado ni afiliado a Google LLC ni a Microsoft Corporation.
 ```
 
 ## Screenshots requeridos
